@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup";
@@ -26,7 +27,7 @@ export function AuthScreen() {
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<Status>(null);
-  const passwordStrength = useMemo(() => strength(password), [password]);
+  const passwordStrength = strength(password);
 
   function switchMode(next: AuthMode) {
     setMode(next);
@@ -131,8 +132,7 @@ export function AuthScreen() {
 
       <section className="visual-panel" aria-label="放課後の学習スペース">
         <div className="visual-image">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/classroom-desk.jpg" alt="机を囲んで学習する学生たち" />
+          <Image src="/classroom-desk.jpg" alt="机を囲んで学習する学生たち" fill sizes="(max-width: 780px) 100vw, 560px" priority unoptimized />
           <div className="image-dots" aria-hidden="true" />
           <div className="visual-caption"><span className="live-dot" />学びの時間を、もっと自分らしく。</div>
         </div>
