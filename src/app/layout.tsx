@@ -13,7 +13,7 @@ const nunitoSans = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Quizroom",
+  title: "EmoAcademy",
   description: "学びの時間を、もっと自分らしく。",
 };
 

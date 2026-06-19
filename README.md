@@ -1,6 +1,6 @@
-# Quizroom Web
+# EmoAcademy
 
-Quizroomの独立Webフロントエンドです。
+EmoAcademyの独立Webフロントエンドです。
 
 - Next.js App Router
 - Supabase Auth / Postgres / Edge Functions

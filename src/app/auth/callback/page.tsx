@@ -25,5 +25,5 @@ export default function AuthCallbackPage() {
     void completeConfirmation();
   }, [router]);
 
-  return <main className="simple-page"><section className="simple-card"><h1>Quizroom</h1><p>{message}</p><Link className="simple-link" href="/">ログインへ戻る</Link></section></main>;
+  return <main className="simple-page"><section className="simple-card"><h1>EmoAcademy</h1><p>{message}</p><Link className="simple-link" href="/">ログインへ戻る</Link></section></main>;
 }

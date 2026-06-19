@@ -21,7 +21,7 @@ export function getSupabaseBrowserClient(mode: StorageMode = "local") {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storage: mode === "local" ? window.localStorage : window.sessionStorage,
-      storageKey: `quizroom-${mode}-auth`,
+      storageKey: `emo-academy-${mode}-auth`,
     },
   });
   return clients[mode]!;

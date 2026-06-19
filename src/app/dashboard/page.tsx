@@ -45,7 +45,7 @@ export default function DashboardPage() {
 
   return (
     <main className="simple-page"><section className="simple-card">
-      <p className="eyebrow">QUIZROOM</p><h1>ログインできました</h1>
+      <p className="eyebrow">EMOACADEMY</p><h1>ログインできました</h1>
       {message && <p>{message}</p>}
       {user && <><p><strong>{String(user.user_metadata?.display_name || "ユーザー")}</strong><br />{user.email}<br />ロール: {String(user.user_metadata?.role || "未設定")}</p><div className="simple-actions"><button className="submit-button" type="button" onClick={logout}>ログアウト</button><button className="submit-button danger-button" type="button" onClick={deleteAccount}>アカウント削除</button></div></>}
     </section></main>

@@ -138,11 +138,11 @@ export function AuthScreen() {
         </div>
       </section>
 
-      <section className="auth-panel" aria-label="Quizroom アカウント">
+      <section className="auth-panel" aria-label="EmoAcademy アカウント">
         <div className="liquid-orb orb-one" aria-hidden="true" />
         <div className="liquid-orb orb-two" aria-hidden="true" />
         <div className="auth-inner">
-          <header className="brand-row"><span className="brand">Quizroom</span><span className="secure-badge">⌑ Secure</span></header>
+          <header className="brand-row"><span className="brand">EmoAcademy</span><span className="secure-badge">⌑ Secure</span></header>
           <div className="auth-tabs" role="tablist" aria-label="認証方法">
             <button type="button" role="tab" aria-selected={mode === "signup"} className={`auth-tab ${mode === "signup" ? "active" : ""}`} onClick={() => switchMode("signup")}>新規登録</button>
             <button type="button" role="tab" aria-selected={mode === "login"} className={`auth-tab ${mode === "login" ? "active" : ""}`} onClick={() => switchMode("login")}>ログイン</button>
@@ -150,7 +150,7 @@ export function AuthScreen() {
 
           {mode === "login" ? (
             <section className="auth-pane" role="tabpanel">
-              <div className="pane-heading"><p className="eyebrow">WELCOME BACK</p><h1>おかえりなさい</h1><p>Quizroomで、前回の学習から続けましょう。</p></div>
+              <div className="pane-heading"><p className="eyebrow">WELCOME BACK</p><h1>おかえりなさい</h1><p>EmoAcademyで、前回の学習から続けましょう。</p></div>
               <form onSubmit={handleLogin}>
                 <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><span className="input-icon">@</span><input id="login-email" name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
                 <label className="field"><span className="field-line"><span>パスワード</span><button className="inline-action" type="button" onClick={requestPasswordReset}>パスワードを忘れた</button></span><span className="input-shell"><span className="input-icon">⌑</span><input name="password" type={passwordVisible ? "text" : "password"} placeholder="パスワードを入力" autoComplete="current-password" required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}>{passwordVisible ? "╱" : "◉"}</button></span></label>
