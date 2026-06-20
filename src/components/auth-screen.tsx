@@ -156,9 +156,11 @@ export function AuthScreen() {
     setSocialLoading(provider);
     setStatus(null);
     await clearSupabaseSessions();
-    window.sessionStorage.setItem("emo-academy-oauth-storage", storageMode);
-    if (signupRole) window.sessionStorage.setItem("emo-academy-oauth-role", signupRole);
-    else window.sessionStorage.removeItem("emo-academy-oauth-role");
+    // Keep callback metadata in localStorage so it survives the full OAuth
+    // redirect even when the resulting auth session itself is session-only.
+    window.localStorage.setItem("emo-academy-oauth-storage", storageMode);
+    if (signupRole) window.localStorage.setItem("emo-academy-oauth-role", signupRole);
+    else window.localStorage.removeItem("emo-academy-oauth-role");
     const { error } = await client.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -188,7 +190,7 @@ export function AuthScreen() {
         <div className="liquid-orb orb-one" aria-hidden="true" />
         <div className="liquid-orb orb-two" aria-hidden="true" />
         <div className="auth-inner">
-          <header className="brand-row"><span className="brand"><Image className="brand-mark" src="/emoacademy-mark.png" width={38} height={38} alt="" priority unoptimized />EmoAcademy</span><span className="secure-badge"><LockIcon />Secure</span></header>
+          <header className="brand-row"><span className="brand"><Image className="brand-mark" src="/emoacademy-mark.png" width={38} height={38} alt="" priority unoptimized />EmoAcademy</span></header>
           <div className="auth-tabs" role="tablist" aria-label="認証方法">
             <button type="button" role="tab" aria-selected={mode === "signup"} className={`auth-tab ${mode === "signup" ? "active" : ""}`} onClick={() => switchMode("signup")}>新規登録</button>
             <button type="button" role="tab" aria-selected={mode === "login"} className={`auth-tab ${mode === "login" ? "active" : ""}`} onClick={() => switchMode("login")}>ログイン</button>
@@ -196,21 +198,19 @@ export function AuthScreen() {
 
           {mode === "login" ? (
             <section className="auth-pane" role="tabpanel">
-              <div className="pane-heading"><p className="eyebrow">WELCOME BACK</p><h1>おかえりなさい</h1><p>EmoAcademyで、前回の学習から続けましょう。</p></div>
+              <div className="pane-heading"><h1>アカウントにログイン</h1></div>
               <form onSubmit={handleLogin}>
+                <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google")} disabled={Boolean(socialLoading)}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleでログイン"}</button>
+                <div className="auth-divider"><span>またはメールでログイン</span></div>
                 <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><MailIcon /><input id="login-email" name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
                 <label className="field"><span className="field-line"><span>パスワード</span><button className="inline-action" type="button" onClick={requestPasswordReset}>パスワードを忘れた</button></span><span className="input-shell"><LockIcon /><input name="password" type={passwordVisible ? "text" : "password"} placeholder="パスワードを入力" autoComplete="current-password" required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}><EyeIcon closed={passwordVisible} /></button></span></label>
                 <label className="remember-control"><input type="checkbox" checked={remember} disabled={loading || Boolean(socialLoading)} onChange={(event) => setRemember(event.target.checked)} /><span className="remember-switch" /><span>ログインしたままにする</span></label>
                 <button className="submit-button" type="submit" disabled={loading}>{loading ? <span className="button-spinner" /> : "ログイン"}</button>
-                <div className="auth-divider"><span>または</span></div>
-                <div className="social-login-row">
-                  <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google")} disabled={Boolean(socialLoading)}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleでログイン"}</button>
-                </div>
               </form>
             </section>
           ) : (
             <section className="auth-pane" role="tabpanel">
-              <div className="pane-heading compact"><h1>アカウントを作成</h1><p>最初に利用するロールを選択してください。</p></div>
+              <div className="pane-heading compact"><h1>アカウントを作成</h1></div>
               <form onSubmit={handleSignup}>
                 <div className="role-selector" role="group" aria-label="ロールを選択">
                   <button className={`role-option ${role === "student" ? "active" : ""}`} type="button" aria-pressed={role === "student"} onClick={() => setRole("student")}><span className="role-icon">学</span><span><strong>学生</strong><small>授業と教材に参加</small></span></button>
@@ -231,7 +231,7 @@ export function AuthScreen() {
 
           <div className={`status ${status?.kind || ""}`} role="status" aria-live="polite">{status?.message}</div>
           {!isSupabaseConfigured() && <p className="setup-note">Preview mode — Supabase keys are not configured.</p>}
-          <nav className="support-links" aria-label="アカウントサポート"><button type="button" onClick={() => setStatus({ kind: "info", message: "アカウント復旧からパスワードを再設定できます。" })}>ヘルプ</button><span /><button type="button" onClick={requestPasswordReset}>アカウント復旧</button></nav>
+          {mode === "login" && <nav className="support-links" aria-label="アカウントサポート"><button type="button" onClick={() => setStatus({ kind: "info", message: "アカウント復旧からパスワードを再設定できます。" })}>ヘルプ</button><span /><button type="button" onClick={requestPasswordReset}>アカウント復旧</button></nav>}
         </div>
       </section>
     </main>

@@ -23,7 +23,9 @@ export function getSupabaseBrowserClient(mode: StorageMode = "local") {
       flowType: "pkce",
       persistSession: true,
       autoRefreshToken: true,
-      detectSessionInUrl: true,
+      // The callback page exchanges the PKCE code explicitly. Enabling the
+      // automatic URL detector as well can consume the verifier twice.
+      detectSessionInUrl: false,
       storage: mode === "local" ? window.localStorage : window.sessionStorage,
       storageKey: storageKeys[mode],
     },
