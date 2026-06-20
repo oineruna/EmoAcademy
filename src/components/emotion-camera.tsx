@@ -1,31 +1,36 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type Sample = { valence: number; arousal: number };
 
-export function EmotionCamera({ onClose }: { onClose: () => void }) {
+export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => void; language?: "ja" | "en" }) {
+  const text = language === "ja" ? {
+    stopped: "カメラは停止中", measuring: "学習シグナルを計測中", denied: "カメラを使えません。ブラウザの権限を確認してください。", close: "閉じる", local: "端末内デモ推定", startOnly: "開始時だけカメラを使用", stop: "停止", start: "計測開始", current: "現在", trace: "集中トレース", samples: "直近18サンプル", privacy: "映像はサーバーへ送信しません。これは研究用モデルではなく、画面確認用の簡易シグナルです。",
+  } : {
+    stopped: "Camera is off", measuring: "Measuring study signals", denied: "Camera unavailable. Check your browser permission.", close: "Close", local: "On-device demo", startOnly: "Camera starts only when requested", stop: "Stop", start: "Start", current: "Current", trace: "Focus trace", samples: "Latest 18 samples", privacy: "Video is not sent to a server. This is a simple interface demo signal, not a research-grade model.",
+  };
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const previousBrightness = useRef(0.5);
   const [active, setActive] = useState(false);
-  const [status, setStatus] = useState("カメラは停止中");
+  const [status, setStatus] = useState(text.stopped);
   const [sample, setSample] = useState<Sample>({ valence: 0.18, arousal: 0.46 });
   const [history, setHistory] = useState<Sample[]>([]);
 
-  const stop = () => {
+  const stop = useCallback(() => {
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = null;
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setActive(false);
-    setStatus("カメラは停止中");
-  };
+    setStatus(text.stopped);
+  }, [text.stopped]);
 
-  useEffect(() => stop, []);
+  useEffect(() => stop, [stop]);
 
   async function start() {
     try {
@@ -36,10 +41,10 @@ export function EmotionCamera({ onClose }: { onClose: () => void }) {
         await videoRef.current.play();
       }
       setActive(true);
-      setStatus("学習シグナルを計測中");
+      setStatus(text.measuring);
       timerRef.current = window.setInterval(analyseFrame, 900);
     } catch {
-      setStatus("カメラを使えません。ブラウザの権限を確認してください。");
+      setStatus(text.denied);
     }
   }
 
@@ -75,21 +80,21 @@ export function EmotionCamera({ onClose }: { onClose: () => void }) {
   return (
     <section className="emotion-dock" aria-label="学習シグナルモニター">
       <header className="emotion-dock-head">
-        <div><span className={active ? "live-pip active" : "live-pip"} /> <strong>Emotion check-in</strong><small>端末内デモ推定</small></div>
-        <button type="button" onClick={() => { stop(); onClose(); }} aria-label="閉じる">×</button>
+        <div><span className={active ? "live-pip active" : "live-pip"} /> <strong>Emotion check-in</strong><small>{text.local}</small></div>
+        <button type="button" onClick={() => { stop(); onClose(); }} aria-label={text.close}>×</button>
       </header>
       <div className="emotion-grid">
         <div className="camera-frame">
           <video ref={videoRef} muted playsInline />
-          {!active && <div className="camera-placeholder"><span>◉</span><p>開始時だけカメラを使用</p></div>}
+          {!active && <div className="camera-placeholder"><span>◉</span><p>{text.startOnly}</p></div>}
           <canvas ref={canvasRef} width="48" height="36" hidden />
           <div className="camera-controls">
             <span>{status}</span>
-            <button type="button" onClick={active ? stop : start}>{active ? "停止" : "計測開始"}</button>
+            <button type="button" onClick={active ? stop : start}>{active ? text.stop : text.start}</button>
           </div>
         </div>
         <div className="signal-card">
-          <div className="signal-label"><span>現在</span><strong>{label}</strong></div>
+          <div className="signal-label"><span>{text.current}</span><strong>{label}</strong></div>
           <div className="circumplex" aria-label={`Valence ${sample.valence.toFixed(2)}, Arousal ${sample.arousal.toFixed(2)}`}>
             <span className="axis-y">ACTIVE</span><span className="axis-x">POSITIVE</span>
             <i style={{ left: `${dotX}%`, top: `${dotY}%` }} />
@@ -97,8 +102,8 @@ export function EmotionCamera({ onClose }: { onClose: () => void }) {
           <div className="signal-values"><span>Valence <b>{sample.valence.toFixed(2)}</b></span><span>Arousal <b>{sample.arousal.toFixed(2)}</b></span></div>
         </div>
       </div>
-      <div className="signal-timeline"><div><strong>Focus trace</strong><span>直近18サンプル</span></div><svg viewBox="0 0 100 48" preserveAspectRatio="none"><line x1="0" y1="24" x2="100" y2="24" /><polyline points={path || "0,24 100,24"} /></svg></div>
-      <p className="privacy-note">映像はサーバーへ送信しません。これは研究用モデルではなく、画面確認用の簡易シグナルです。</p>
+      <div className="signal-timeline"><div><strong>{text.trace}</strong><span>{text.samples}</span></div><svg viewBox="0 0 100 48" preserveAspectRatio="none"><line x1="0" y1="24" x2="100" y2="24" /><polyline points={path || "0,24 100,24"} /></svg></div>
+      <p className="privacy-note">{text.privacy}</p>
     </section>
   );
 }
