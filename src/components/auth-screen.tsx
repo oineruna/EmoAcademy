@@ -7,7 +7,7 @@ import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/c
 
 type AuthMode = "login" | "signup";
 type Role = "student" | "teacher";
-type SocialProvider = "google" | "apple";
+type SocialProvider = "google";
 type Status = { message: string; kind: "error" | "warning" | "success" | "info" } | null;
 
 function LockIcon() {
@@ -30,10 +30,6 @@ function EyeIcon({ closed = false }: { closed?: boolean }) {
 
 function GoogleIcon() {
   return <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M21.6 12.2c0-.7-.1-1.5-.2-2.2H12v4.3h5.4a4.7 4.7 0 0 1-2 3v2.8h3.3c1.9-1.8 2.9-4.4 2.9-7.9Z" /><path fill="#34A853" d="M12 22c2.7 0 5-.9 6.7-2.4l-3.3-2.8c-.9.6-2.1 1-3.4 1a5.9 5.9 0 0 1-5.5-4.1H3.1v2.9A10.1 10.1 0 0 0 12 22Z" /><path fill="#FBBC05" d="M6.5 13.7a6 6 0 0 1 0-3.8V7H3.1a10.1 10.1 0 0 0 0 9.6l3.4-2.9Z" /><path fill="#EA4335" d="M12 5.8c1.5 0 2.8.5 3.9 1.5l2.9-2.9A9.8 9.8 0 0 0 3.1 7l3.4 2.9A5.9 5.9 0 0 1 12 5.8Z" /></svg>;
-}
-
-function AppleIcon() {
-  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.1 12.5c0-2.5 2.1-3.7 2.2-3.8a4.8 4.8 0 0 0-3.8-2.1c-1.6-.2-3.1.9-3.9.9-.8 0-2-1-3.3-1a5 5 0 0 0-4.2 2.6c-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.5 1.3-.1 1.8-.8 3.4-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.2 3.1-2.5a11 11 0 0 0 1.4-2.9c-.1 0-2.8-1.1-2.8-3.9ZM14.4 4.9c.7-.9 1.2-2.1 1.1-3.3-1.1.1-2.4.7-3.2 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.5-.6 3.2-1.5Z" /></svg>;
 }
 
 function strength(password: string) {
@@ -161,7 +157,7 @@ export function AuthScreen() {
     });
     if (error) {
       setSocialLoading(null);
-      setStatus({ kind: "error", message: `${provider === "google" ? "Google" : "Apple"}ログインを開始できませんでした。${error.message}` });
+      setStatus({ kind: "error", message: `Googleログインを開始できませんでした。${error.message}` });
     }
   }
 
@@ -201,8 +197,7 @@ export function AuthScreen() {
                 <button className="submit-button" type="submit" disabled={loading}>{loading ? <span className="button-spinner" /> : "ログイン"}</button>
                 <div className="auth-divider"><span>または</span></div>
                 <div className="social-login-row">
-                  <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google")} disabled={Boolean(socialLoading)}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Google"}</button>
-                  <button className="social-login-button apple" type="button" onClick={() => handleSocialLogin("apple")} disabled={Boolean(socialLoading)}><AppleIcon />{socialLoading === "apple" ? "接続中…" : "Apple"}</button>
+                  <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google")} disabled={Boolean(socialLoading)}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleでログイン"}</button>
                 </div>
               </form>
             </section>
