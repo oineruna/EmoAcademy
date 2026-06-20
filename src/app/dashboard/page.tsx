@@ -9,12 +9,13 @@ import { getActiveSupabaseClient, isSupabaseConfigured } from "@/lib/supabase/cl
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<{ display_name: string | null; role: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     let active = true;
-    getActiveSupabaseClient().then((result) => {
+    getActiveSupabaseClient().then(async (result) => {
       if (!active) return;
       if (!result) {
         if (isSupabaseConfigured()) {
@@ -25,6 +26,13 @@ export default function DashboardPage() {
         return;
       }
       setUser(result.session.user);
+      const { data } = await result.client
+        .from("profiles")
+        .select("display_name, role")
+        .eq("id", result.session.user.id)
+        .maybeSingle();
+      if (!active) return;
+      if (data) setProfile(data);
       setLoading(false);
     });
     return () => { active = false; };
@@ -56,9 +64,9 @@ export default function DashboardPage() {
 
   return (
     <LearningDashboard
-      displayName={String(user?.user_metadata?.display_name || "Alex")}
+      displayName={String(profile?.display_name || user?.user_metadata?.display_name || user?.user_metadata?.full_name || "Alex")}
       email={user?.email || "preview@emoacademy.local"}
-      role={String(user?.user_metadata?.role || "student")}
+      role={String(profile?.role || user?.user_metadata?.role || "student")}
       preview={!user}
       message={message}
       onLogout={logout}

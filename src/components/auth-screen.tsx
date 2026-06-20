@@ -50,6 +50,8 @@ export function AuthScreen() {
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<SocialProvider | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [pendingSignupEmail, setPendingSignupEmail] = useState("");
   const [status, setStatus] = useState<Status>(null);
   const passwordStrength = strength(password);
 
@@ -57,6 +59,7 @@ export function AuthScreen() {
     setMode(next);
     setStatus(null);
     setPassword("");
+    setPendingSignupEmail("");
   }
 
   function requireClient(storage: "local" | "session" = "local") {
@@ -121,14 +124,36 @@ export function AuthScreen() {
     });
     setLoading(false);
     if (error) {
-      setStatus({ kind: "error", message: error.message });
+      const message = error.message.includes("not authorized")
+        ? "このメールアドレスにはSupabase標準メールを送信できません。管理者側でCustom SMTPの設定が必要です。"
+        : error.message.includes("rate limit")
+          ? "確認メールの送信回数上限に達しました。しばらく待ってから再送してください。"
+          : error.message;
+      setStatus({ kind: "error", message });
       return;
     }
     if (data.session) {
       router.push("/dashboard");
       return;
     }
-    setStatus({ kind: "success", message: "確認メールを送信しました。メール内のリンクを開いてください。" });
+    setPendingSignupEmail(email);
+    setStatus({ kind: "success", message: "確認メールの送信をリクエストしました。迷惑メールも確認してください。" });
+  }
+
+  async function resendSignupEmail() {
+    if (!pendingSignupEmail) return;
+    const client = requireClient("local");
+    if (!client) return;
+    setResendLoading(true);
+    const { error } = await client.auth.resend({
+      type: "signup",
+      email: pendingSignupEmail,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    });
+    setResendLoading(false);
+    setStatus(error
+      ? { kind: "error", message: error.message.includes("rate limit") ? "送信回数の上限に達しました。しばらく待ってから再送してください。" : error.message }
+      : { kind: "success", message: "確認メールを再送しました。迷惑メールも確認してください。" });
   }
 
   async function requestPasswordReset() {
@@ -229,7 +254,10 @@ export function AuthScreen() {
             </section>
           )}
 
-          <div className={`status ${status?.kind || ""}`} role="status" aria-live="polite">{status?.message}</div>
+          <div className={`status ${status?.kind || ""}`} role="status" aria-live="polite">
+            {status?.message}
+            {mode === "signup" && pendingSignupEmail && <button className="resend-button" type="button" disabled={resendLoading} onClick={resendSignupEmail}>{resendLoading ? "再送中…" : "確認メールを再送"}</button>}
+          </div>
           {!isSupabaseConfigured() && <p className="setup-note">Preview mode — Supabase keys are not configured.</p>}
           {mode === "login" && <nav className="support-links" aria-label="アカウントサポート"><button type="button" onClick={() => setStatus({ kind: "info", message: "アカウント復旧からパスワードを再設定できます。" })}>ヘルプ</button><span /><button type="button" onClick={requestPasswordReset}>アカウント復旧</button></nav>}
         </div>
