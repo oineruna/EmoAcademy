@@ -19,7 +19,9 @@ export default function AuthCallbackPage() {
         setMessage(errorDescription);
         return;
       }
-      const client = getSupabaseBrowserClient("local");
+      const storageMode = window.sessionStorage.getItem("emo-academy-oauth-storage") === "session" ? "session" : "local";
+      window.sessionStorage.removeItem("emo-academy-oauth-storage");
+      const client = getSupabaseBrowserClient(storageMode);
       if (!code || !client) {
         setMessage("確認リンクが無効か、Supabaseが未設定です。");
         return;

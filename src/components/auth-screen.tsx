@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { clearSupabaseSessions, getSupabaseBrowserClient, isSupabaseConfigured } from "@/lib/supabase/client";
 
 type AuthMode = "login" | "signup";
 type Role = "student" | "teacher";
@@ -75,11 +75,13 @@ export function AuthScreen() {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email") || "").trim();
     const loginPassword = String(form.get("password") || "");
-    const client = requireClient(remember ? "local" : "session");
+    const storageMode = remember ? "local" : "session";
+    const client = requireClient(storageMode);
     if (!client) return;
 
     setLoading(true);
     setStatus(null);
+    await clearSupabaseSessions();
     const { error } = await client.auth.signInWithPassword({ email, password: loginPassword });
     setLoading(false);
     if (error) {
@@ -108,6 +110,7 @@ export function AuthScreen() {
 
     setLoading(true);
     setStatus(null);
+    await clearSupabaseSessions();
     const { data, error } = await client.auth.signUp({
       email,
       password,
@@ -147,10 +150,13 @@ export function AuthScreen() {
   }
 
   async function handleSocialLogin(provider: SocialProvider) {
-    const client = requireClient("local");
+    const storageMode = remember ? "local" : "session";
+    const client = requireClient(storageMode);
     if (!client) return;
     setSocialLoading(provider);
     setStatus(null);
+    await clearSupabaseSessions();
+    window.sessionStorage.setItem("emo-academy-oauth-storage", storageMode);
     const { error } = await client.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -171,8 +177,7 @@ export function AuthScreen() {
 
       <section className="visual-panel" aria-label="放課後の学習スペース">
         <div className="visual-image">
-          <Image src="/classroom-desk.jpg" alt="机を囲んで学習する学生たち" fill sizes="(max-width: 780px) 100vw, 560px" priority unoptimized />
-          <div className="image-dots" aria-hidden="true" />
+          <Image src="/classroom-desk.jpg" alt="机を囲んで学習する学生たち" fill sizes="(max-width: 780px) 100vw, 720px" priority unoptimized />
           <div className="visual-caption"><span className="live-dot" />学びの時間を、もっと自分らしく。</div>
         </div>
       </section>
@@ -193,7 +198,7 @@ export function AuthScreen() {
               <form onSubmit={handleLogin}>
                 <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><MailIcon /><input id="login-email" name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
                 <label className="field"><span className="field-line"><span>パスワード</span><button className="inline-action" type="button" onClick={requestPasswordReset}>パスワードを忘れた</button></span><span className="input-shell"><LockIcon /><input name="password" type={passwordVisible ? "text" : "password"} placeholder="パスワードを入力" autoComplete="current-password" required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}><EyeIcon closed={passwordVisible} /></button></span></label>
-                <label className="remember-control"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span className="switch" /><span>ログインしたままにする</span></label>
+                <label className="remember-control"><input type="checkbox" checked={remember} disabled={loading || Boolean(socialLoading)} onChange={(event) => setRemember(event.target.checked)} /><span className="switch" /><span>ログインしたままにする</span></label>
                 <button className="submit-button" type="submit" disabled={loading}>{loading ? <span className="button-spinner" /> : "ログイン"}</button>
                 <div className="auth-divider"><span>または</span></div>
                 <div className="social-login-row">

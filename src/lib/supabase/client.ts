@@ -5,6 +5,10 @@ type StorageMode = "local" | "session";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const clients: Partial<Record<StorageMode, SupabaseClient>> = {};
+const storageKeys: Record<StorageMode, string> = {
+  local: "emo-academy-local-auth",
+  session: "emo-academy-session-auth",
+};
 
 export function isSupabaseConfigured() {
   return Boolean(supabaseUrl?.startsWith("https://") && supabaseKey);
@@ -21,10 +25,19 @@ export function getSupabaseBrowserClient(mode: StorageMode = "local") {
       autoRefreshToken: true,
       detectSessionInUrl: true,
       storage: mode === "local" ? window.localStorage : window.sessionStorage,
-      storageKey: `emo-academy-${mode}-auth`,
+      storageKey: storageKeys[mode],
     },
   });
   return clients[mode]!;
+}
+
+export async function clearSupabaseSessions() {
+  if (typeof window === "undefined") return;
+  await Promise.allSettled(
+    Object.values(clients).map((client) => client.auth.signOut({ scope: "local" })),
+  );
+  window.localStorage.removeItem(storageKeys.local);
+  window.sessionStorage.removeItem(storageKeys.session);
 }
 
 export async function getActiveSupabaseClient() {
