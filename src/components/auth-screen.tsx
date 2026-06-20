@@ -214,7 +214,7 @@ export function AuthScreen() {
       <section className="auth-panel" aria-label="EmoAcademy アカウント">
         <div className="liquid-orb orb-one" aria-hidden="true" />
         <div className="liquid-orb orb-two" aria-hidden="true" />
-        <div className="auth-inner">
+        <div className={`auth-inner ${mode}-mode`}>
           <header className="brand-row"><span className="brand"><Image className="brand-mark" src="/emoacademy-mark.png" width={38} height={38} alt="" priority unoptimized />EmoAcademy</span></header>
           <div className="auth-tabs" role="tablist" aria-label="認証方法">
             <button type="button" role="tab" aria-selected={mode === "signup"} className={`auth-tab ${mode === "signup" ? "active" : ""}`} onClick={() => switchMode("signup")}>新規登録</button>
@@ -222,7 +222,7 @@ export function AuthScreen() {
           </div>
 
           {mode === "login" ? (
-            <section className="auth-pane" role="tabpanel">
+            <section className="auth-pane login-pane" role="tabpanel">
               <div className="pane-heading"><h1>アカウントにログイン</h1></div>
               <form onSubmit={handleLogin}>
                 <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google")} disabled={Boolean(socialLoading)}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleでログイン"}</button>
@@ -234,7 +234,7 @@ export function AuthScreen() {
               </form>
             </section>
           ) : (
-            <section className="auth-pane" role="tabpanel">
+            <section className="auth-pane signup-pane" role="tabpanel">
               <div className="pane-heading compact"><h1>アカウントを作成</h1></div>
               <form onSubmit={handleSignup}>
                 <div className="role-selector" role="group" aria-label="ロールを選択">
