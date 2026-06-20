@@ -66,9 +66,10 @@ form{display:grid;gap:16px}.field-grid{display:grid;grid-template-columns:1fr 1.
    Nunito Sans is the licensed local fallback with similar geometry. */
 :root{--quizlet-font:"hurme_no2-webfont",var(--font-nunito-sans),var(--font-noto-sans-jp),sans-serif}
 .auth-screen,.lab-shell{font-family:var(--quizlet-font)}
-.auth-inner{padding-inline:48px}
+.auth-inner{display:flex;flex-direction:column;padding-inline:48px}
 .auth-panel form,.input-shell,.submit-button,.social-login-button{width:100%}
 .resend-button{display:block;margin:8px auto 0;padding:7px 12px;border:1px solid currentColor;border-radius:999px;background:rgba(255,255,255,.52);color:inherit;font-size:12px;font-weight:900;cursor:pointer}.resend-button:disabled{opacity:.55;cursor:wait}
+.auth-pane{flex:1;display:flex;min-height:0;flex-direction:column}.auth-pane form{flex:1;display:flex;min-height:0;flex-direction:column}.auth-bottom-actions{display:grid;gap:12px;margin-top:auto;padding-top:18px}.signup-bottom-actions{gap:14px}
 .login-mode .brand-row{margin-bottom:20px}.login-mode .auth-tabs{margin-bottom:24px}.login-pane .pane-heading{margin-bottom:22px}.login-pane form{gap:18px}.login-mode .support-links{margin-top:20px;padding-top:15px}
 @media(max-width:1450px){.auth-inner{padding-inline:40px}}
 @media(max-width:480px){.auth-inner{padding-inline:22px}.login-mode .auth-tabs{margin-bottom:18px}.login-pane form{gap:14px}.login-mode .support-links{margin-top:14px}}
