@@ -9,6 +9,24 @@ type AuthMode = "login" | "signup";
 type Role = "student" | "teacher";
 type Status = { message: string; kind: "error" | "warning" | "success" | "info" } | null;
 
+function LockIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10V7a4.5 4.5 0 0 1 9 0v3M6 10h12v10H6z" /></svg>;
+}
+
+function MailIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18v12H3zM3 7l9 6 9-6" /></svg>;
+}
+
+function UserIcon() {
+  return <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4.5 21a7.5 7.5 0 0 1 15 0" /></svg>;
+}
+
+function EyeIcon({ closed = false }: { closed?: boolean }) {
+  return closed
+    ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18M10.5 6.1A9.8 9.8 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.4 3.1M6.2 6.2C3.8 8 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3-.5M9.8 9.8a3 3 0 0 0 4.4 4.4" /></svg>
+    : <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z" /><circle cx="12" cy="12" r="2.6" /></svg>;
+}
+
 function strength(password: string) {
   if (!password) return { score: 0, label: "未入力", tone: "neutral" };
   let score = Math.min(40, (password.length / 12) * 40);
@@ -142,7 +160,7 @@ export function AuthScreen() {
         <div className="liquid-orb orb-one" aria-hidden="true" />
         <div className="liquid-orb orb-two" aria-hidden="true" />
         <div className="auth-inner">
-          <header className="brand-row"><span className="brand">EmoAcademy</span><span className="secure-badge">⌑ Secure</span></header>
+          <header className="brand-row"><span className="brand">EmoAcademy</span><span className="secure-badge"><LockIcon />Secure</span></header>
           <div className="auth-tabs" role="tablist" aria-label="認証方法">
             <button type="button" role="tab" aria-selected={mode === "signup"} className={`auth-tab ${mode === "signup" ? "active" : ""}`} onClick={() => switchMode("signup")}>新規登録</button>
             <button type="button" role="tab" aria-selected={mode === "login"} className={`auth-tab ${mode === "login" ? "active" : ""}`} onClick={() => switchMode("login")}>ログイン</button>
@@ -152,8 +170,8 @@ export function AuthScreen() {
             <section className="auth-pane" role="tabpanel">
               <div className="pane-heading"><p className="eyebrow">WELCOME BACK</p><h1>おかえりなさい</h1><p>EmoAcademyで、前回の学習から続けましょう。</p></div>
               <form onSubmit={handleLogin}>
-                <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><span className="input-icon">@</span><input id="login-email" name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
-                <label className="field"><span className="field-line"><span>パスワード</span><button className="inline-action" type="button" onClick={requestPasswordReset}>パスワードを忘れた</button></span><span className="input-shell"><span className="input-icon">⌑</span><input name="password" type={passwordVisible ? "text" : "password"} placeholder="パスワードを入力" autoComplete="current-password" required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}>{passwordVisible ? "╱" : "◉"}</button></span></label>
+                <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><MailIcon /><input id="login-email" name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
+                <label className="field"><span className="field-line"><span>パスワード</span><button className="inline-action" type="button" onClick={requestPasswordReset}>パスワードを忘れた</button></span><span className="input-shell"><LockIcon /><input name="password" type={passwordVisible ? "text" : "password"} placeholder="パスワードを入力" autoComplete="current-password" required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}><EyeIcon closed={passwordVisible} /></button></span></label>
                 <label className="remember-control"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} /><span className="switch" /><span>ログインしたままにする</span></label>
                 <button className="submit-button" type="submit" disabled={loading}>{loading ? <span className="button-spinner" /> : "ログイン"}</button>
               </form>
@@ -167,11 +185,11 @@ export function AuthScreen() {
                   <button className={`role-option ${role === "teacher" ? "active" : ""}`} type="button" aria-pressed={role === "teacher"} onClick={() => setRole("teacher")}><span className="role-icon">教</span><span><strong>教師</strong><small>教材と授業を管理</small></span></button>
                 </div>
                 <div className="field-grid">
-                  <label className="field"><span className="field-label">名前</span><span className="input-shell"><span className="input-icon">人</span><input name="name" type="text" placeholder="山田 花子" autoComplete="name" required /></span></label>
-                  <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><span className="input-icon">@</span><input name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
+                  <label className="field"><span className="field-label">名前</span><span className="input-shell"><UserIcon /><input name="name" type="text" placeholder="山田 花子" autoComplete="name" required /></span></label>
+                  <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><MailIcon /><input name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
                 </div>
-                <label className="field"><span className="field-label">パスワード</span><span className="input-shell"><span className="input-icon">⌑</span><input value={password} onChange={(event) => setPassword(event.target.value)} type={passwordVisible ? "text" : "password"} placeholder="8文字以上のパスワード" autoComplete="new-password" minLength={8} required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}>{passwordVisible ? "╱" : "◉"}</button></span><div className="strength-row"><span className="strength-track"><i className={passwordStrength.tone} style={{ width: `${passwordStrength.score}%` }} /></span><b>{passwordStrength.label}</b></div><ul className="password-rules"><li className={password.length >= 8 ? "met" : ""}>8文字以上</li><li className={/[A-Za-z]/.test(password) && /\d/.test(password) ? "met" : ""}>英字と数字を含む</li></ul></label>
-                <label className="consent-control"><input name="consent" type="checkbox" /><span className="checkmark">✓</span><span><a href="#terms">利用規約</a>と<a href="#privacy">プライバシーポリシー</a>、学習データの取り扱いに同意します。</span></label>
+                <label className="field"><span className="field-label">パスワード</span><span className="input-shell"><LockIcon /><input value={password} onChange={(event) => setPassword(event.target.value)} type={passwordVisible ? "text" : "password"} placeholder="8文字以上のパスワード" autoComplete="new-password" minLength={8} required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}><EyeIcon closed={passwordVisible} /></button></span><div className="strength-row"><span className="strength-track"><i className={passwordStrength.tone} style={{ width: `${passwordStrength.score}%` }} /></span><b>{passwordStrength.label}</b></div><ul className="password-rules"><li className={password.length >= 8 ? "met" : ""}>8文字以上</li><li className={/[A-Za-z]/.test(password) && /\d/.test(password) ? "met" : ""}>英字と数字を含む</li></ul></label>
+                <label className="consent-control"><input name="consent" type="checkbox" /><span className="checkmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 7" /></svg></span><span><a href="#terms">利用規約</a>と<a href="#privacy">プライバシーポリシー</a>、学習データの取り扱いに同意します。</span></label>
                 <button className="submit-button" type="submit" disabled={loading}>{loading ? <span className="button-spinner" /> : `${role === "teacher" ? "教師" : "学生"}として登録する`}</button>
               </form>
             </section>
