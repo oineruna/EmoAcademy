@@ -66,11 +66,9 @@ form{display:grid;gap:16px}.field-grid{display:grid;grid-template-columns:1fr 1.
    Nunito Sans is the licensed local fallback with similar geometry. */
 :root{--quizlet-font:"hurme_no2-webfont",var(--font-nunito-sans),var(--font-noto-sans-jp),sans-serif}
 .auth-screen,.lab-shell{font-family:var(--quizlet-font)}
-.auth-inner{padding-inline:32px}
+.auth-inner{padding-inline:24px}
 .auth-panel form,.input-shell,.submit-button,.social-login-button{width:100%}
 .resend-button{display:block;margin:8px auto 0;padding:7px 12px;border:1px solid currentColor;border-radius:999px;background:rgba(255,255,255,.52);color:inherit;font-size:12px;font-weight:900;cursor:pointer}.resend-button:disabled{opacity:.55;cursor:wait}
-@media(min-width:1101px){.auth-screen{--auth-stage:min(820px,calc(100svh - 28px));width:min(100%,1540px);grid-template-columns:minmax(430px,var(--auth-stage)) minmax(620px,680px);gap:clamp(24px,3vw,52px)}.auth-panel{width:680px}.visual-panel{width:var(--auth-stage)}}
-@media(max-width:1100px){.auth-screen{grid-template-columns:1fr;overflow:visible;padding:12px}.visual-panel{width:min(100%,680px);margin:auto;translate:0}.auth-panel{width:min(100%,680px);margin:auto;min-height:0}.auth-inner{padding:30px 28px}}
 
 /* learning1-emotion_detection-main inspired workspace */
 .lab-shell{--lab-blue:#4255ff;--lab-ink:#202b46;--lab-muted:#6b748b;--lab-line:#e3e8f2;min-height:100svh;background:#f5f7fb;color:var(--lab-ink)}
