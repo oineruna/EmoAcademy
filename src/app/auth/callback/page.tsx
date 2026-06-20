@@ -7,12 +7,18 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
-  const [message, setMessage] = useState("メール確認を完了しています…");
+  const [message, setMessage] = useState("認証を完了しています…");
 
   useEffect(() => {
     async function completeConfirmation() {
       await Promise.resolve();
-      const code = new URLSearchParams(window.location.search).get("code");
+      const parameters = new URLSearchParams(window.location.search);
+      const errorDescription = parameters.get("error_description");
+      const code = parameters.get("code");
+      if (errorDescription) {
+        setMessage(errorDescription);
+        return;
+      }
       const client = getSupabaseBrowserClient("local");
       if (!code || !client) {
         setMessage("確認リンクが無効か、Supabaseが未設定です。");
