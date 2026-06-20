@@ -26,9 +26,22 @@ export default function AuthCallbackPage() {
         setMessage("確認リンクが無効か、Supabaseが未設定です。");
         return;
       }
-      const { error } = await client.auth.exchangeCodeForSession(code);
-      if (error) setMessage(error.message);
-      else router.replace("/dashboard");
+      const { data, error } = await client.auth.exchangeCodeForSession(code);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+      const desiredRole = window.sessionStorage.getItem("emo-academy-oauth-role");
+      window.sessionStorage.removeItem("emo-academy-oauth-role");
+      if (data.user && (desiredRole === "student" || desiredRole === "teacher")) {
+        const displayName = String(data.user.user_metadata.full_name || data.user.user_metadata.name || "");
+        const { error: profileError } = await client.from("profiles").update({ role: desiredRole, display_name: displayName }).eq("id", data.user.id);
+        if (profileError) {
+          setMessage("Google登録は完了しましたが、ロールの保存に失敗しました。もう一度お試しください。");
+          return;
+        }
+      }
+      router.replace("/dashboard");
     }
     void completeConfirmation();
   }, [router]);

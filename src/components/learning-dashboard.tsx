@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { EmotionCamera } from "@/components/emotion-camera";
 
 type Props = {
@@ -28,7 +29,7 @@ export function LearningDashboard({ displayName, email, role, preview, message, 
   return (
     <div className="learn-shell">
       <aside className="learn-sidebar">
-        <a className="learn-brand" href="/dashboard"><span>e</span><strong>EmoAcademy</strong></a>
+        <a className="learn-brand" href="/dashboard"><Image src="/emoacademy-mark.png" width={34} height={34} alt="" unoptimized /><strong>EmoAcademy</strong></a>
         <nav aria-label="メインナビゲーション">
           <a className="active" href="#today"><span>⌂</span>今日の学習</a>
           <a href="#subjects"><span>▦</span>{isTeacher ? "クラス" : "科目"}</a>

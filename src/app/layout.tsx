@@ -15,6 +15,10 @@ const nunitoSans = Nunito_Sans({
 export const metadata: Metadata = {
   title: "EmoAcademy",
   description: "学びの時間を、もっと自分らしく。",
+  icons: {
+    icon: "/emoacademy-mark.png",
+    apple: "/emoacademy-mark.png",
+  },
 };
 
 export default function RootLayout({
