@@ -54,11 +54,14 @@ export function AuthScreen() {
   const [pendingSignupEmail, setPendingSignupEmail] = useState("");
   const [status, setStatus] = useState<Status>(null);
   const passwordStrength = strength(password);
+  const busy = loading || Boolean(socialLoading) || resendLoading;
 
   function switchMode(next: AuthMode) {
+    if (busy || next === mode) return;
     setMode(next);
     setStatus(null);
     setPassword("");
+    setPasswordVisible(false);
     setPendingSignupEmail("");
   }
 
@@ -84,14 +87,19 @@ export function AuthScreen() {
 
     setLoading(true);
     setStatus(null);
-    await clearSupabaseSessions();
-    const { error } = await client.auth.signInWithPassword({ email, password: loginPassword });
-    setLoading(false);
-    if (error) {
-      setStatus({ kind: "error", message: "メールアドレスまたはパスワードが正しくありません。" });
-      return;
+    try {
+      await clearSupabaseSessions();
+      const { error } = await client.auth.signInWithPassword({ email, password: loginPassword });
+      if (error) {
+        setStatus({ kind: "error", message: "メールアドレスまたはパスワードが正しくありません。" });
+        return;
+      }
+      router.push("/dashboard");
+    } catch {
+      setStatus({ kind: "error", message: "通信に失敗しました。接続を確認して、もう一度お試しください。" });
+    } finally {
+      setLoading(false);
     }
-    router.push("/dashboard");
   }
 
   async function handleSignup(event: FormEvent<HTMLFormElement>) {
@@ -113,31 +121,36 @@ export function AuthScreen() {
 
     setLoading(true);
     setStatus(null);
-    await clearSupabaseSessions();
-    const { data, error } = await client.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { display_name: name, role },
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    setLoading(false);
-    if (error) {
-      const message = error.message.includes("not authorized")
-        ? "このメールアドレスにはSupabase標準メールを送信できません。管理者側でCustom SMTPの設定が必要です。"
-        : error.message.includes("rate limit")
-          ? "確認メールの送信回数上限に達しました。しばらく待ってから再送してください。"
-          : error.message;
-      setStatus({ kind: "error", message });
-      return;
+    try {
+      await clearSupabaseSessions();
+      const { data, error } = await client.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { display_name: name, role },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) {
+        const message = error.message.includes("not authorized")
+          ? "このメールアドレスにはSupabase標準メールを送信できません。管理者側でCustom SMTPの設定が必要です。"
+          : error.message.includes("rate limit")
+            ? "確認メールの送信回数上限に達しました。しばらく待ってから再送してください。"
+            : error.message;
+        setStatus({ kind: "error", message });
+        return;
+      }
+      if (data.session) {
+        router.push("/dashboard");
+        return;
+      }
+      setPendingSignupEmail(email);
+      setStatus({ kind: "success", message: "確認メールの送信をリクエストしました。迷惑メールも確認してください。" });
+    } catch {
+      setStatus({ kind: "error", message: "通信に失敗しました。接続を確認して、もう一度お試しください。" });
+    } finally {
+      setLoading(false);
     }
-    if (data.session) {
-      router.push("/dashboard");
-      return;
-    }
-    setPendingSignupEmail(email);
-    setStatus({ kind: "success", message: "確認メールの送信をリクエストしました。迷惑メールも確認してください。" });
   }
 
   async function resendSignupEmail() {
@@ -217,42 +230,42 @@ export function AuthScreen() {
         <div className={`auth-inner ${mode}-mode`}>
           <header className="brand-row"><span className="brand"><Image className="brand-mark" src="/emoacademy-mark.png" width={38} height={38} alt="" priority unoptimized />EmoAcademy</span></header>
           <div className="auth-tabs" role="tablist" aria-label="認証方法">
-            <button type="button" role="tab" aria-selected={mode === "signup"} className={`auth-tab ${mode === "signup" ? "active" : ""}`} onClick={() => switchMode("signup")}>新規登録</button>
-            <button type="button" role="tab" aria-selected={mode === "login"} className={`auth-tab ${mode === "login" ? "active" : ""}`} onClick={() => switchMode("login")}>ログイン</button>
+            <button type="button" role="tab" aria-selected={mode === "signup"} aria-controls="signup-panel" disabled={busy} className={`auth-tab ${mode === "signup" ? "active" : ""}`} onClick={() => switchMode("signup")}>新規登録</button>
+            <button type="button" role="tab" aria-selected={mode === "login"} aria-controls="login-panel" disabled={busy} className={`auth-tab ${mode === "login" ? "active" : ""}`} onClick={() => switchMode("login")}>ログイン</button>
           </div>
 
           {mode === "login" ? (
-            <section className="auth-pane login-pane" role="tabpanel">
+            <section key="login" id="login-panel" className="auth-pane login-pane" role="tabpanel" aria-busy={busy}>
               <div className="pane-heading"><h1>アカウントにログイン</h1></div>
               <form onSubmit={handleLogin}>
-                <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google")} disabled={Boolean(socialLoading)}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleでログイン"}</button>
+                <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google")} disabled={busy}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleでログイン"}</button>
                 <div className="auth-divider"><span>またはメールでログイン</span></div>
                 <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><MailIcon /><input id="login-email" name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
                 <label className="field"><span className="field-line"><span>パスワード</span><button className="inline-action" type="button" onClick={requestPasswordReset}>パスワードを忘れた</button></span><span className="input-shell"><LockIcon /><input name="password" type={passwordVisible ? "text" : "password"} placeholder="パスワードを入力" autoComplete="current-password" required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}><EyeIcon closed={passwordVisible} /></button></span></label>
                 <label className="remember-control"><input type="checkbox" checked={remember} disabled={loading || Boolean(socialLoading)} onChange={(event) => setRemember(event.target.checked)} /><span className="remember-switch" /><span>ログインしたままにする</span></label>
                 <div className="auth-bottom-actions login-bottom-actions">
-                  <button className="submit-button" type="submit" disabled={loading}>{loading ? <span className="button-spinner" /> : "ログイン"}</button>
+                  <button className="submit-button" type="submit" disabled={busy}>{loading ? <span className="button-spinner" /> : "ログイン"}</button>
                 </div>
               </form>
             </section>
           ) : (
-            <section className="auth-pane signup-pane" role="tabpanel">
+            <section key="signup" id="signup-panel" className="auth-pane signup-pane" role="tabpanel" aria-busy={busy}>
               <div className="pane-heading compact"><h1>アカウントを作成</h1></div>
               <form onSubmit={handleSignup}>
                 <div className="role-selector" role="group" aria-label="ロールを選択">
                   <button className={`role-option ${role === "student" ? "active" : ""}`} type="button" aria-pressed={role === "student"} onClick={() => setRole("student")}><span className="role-icon">学</span><span><strong>学生</strong><small>授業と教材に参加</small></span></button>
                   <button className={`role-option ${role === "teacher" ? "active" : ""}`} type="button" aria-pressed={role === "teacher"} onClick={() => setRole("teacher")}><span className="role-icon">教</span><span><strong>教師</strong><small>教材と授業を管理</small></span></button>
                 </div>
-                <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google", role)} disabled={Boolean(socialLoading)}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleで登録"}</button>
+                <button className="social-login-button" type="button" onClick={() => handleSocialLogin("google", role)} disabled={busy}><GoogleIcon />{socialLoading === "google" ? "接続中…" : "Googleで登録"}</button>
                 <div className="auth-divider signup-divider"><span>またはメールで登録</span></div>
                 <div className="field-grid">
                   <label className="field"><span className="field-label">名前</span><span className="input-shell"><UserIcon /><input name="name" type="text" placeholder="山田 花子" autoComplete="name" required /></span></label>
                   <label className="field"><span className="field-label">メールアドレス</span><span className="input-shell"><MailIcon /><input name="email" type="email" placeholder="name@example.com" autoComplete="email" required /></span></label>
                 </div>
-                <label className="field"><span className="field-label">パスワード</span><span className="input-shell"><LockIcon /><input value={password} onChange={(event) => setPassword(event.target.value)} type={passwordVisible ? "text" : "password"} placeholder="8文字以上のパスワード" autoComplete="new-password" minLength={8} required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}><EyeIcon closed={passwordVisible} /></button></span><div className="strength-row"><span className="strength-track"><i className={passwordStrength.tone} style={{ width: `${passwordStrength.score}%` }} /></span><b>{passwordStrength.label}</b></div><ul className="password-rules"><li className={password.length >= 8 ? "met" : ""}>8文字以上</li><li className={/[A-Za-z]/.test(password) && /\d/.test(password) ? "met" : ""}>英字と数字を含む</li></ul></label>
+                <label className="field"><span className="field-label">パスワード</span><span className="input-shell"><LockIcon /><input name="password" value={password} onChange={(event) => setPassword(event.target.value)} type={passwordVisible ? "text" : "password"} placeholder="8文字以上のパスワード" autoComplete="new-password" minLength={8} required /><button className="password-toggle" type="button" aria-label={passwordVisible ? "パスワードを隠す" : "パスワードを表示"} onClick={() => setPasswordVisible((value) => !value)}><EyeIcon closed={passwordVisible} /></button></span><div className="strength-row"><span className="strength-track"><i className={passwordStrength.tone} style={{ width: `${passwordStrength.score}%` }} /></span><b>{passwordStrength.label}</b></div><ul className="password-rules"><li className={password.length >= 8 ? "met" : ""}>8文字以上</li><li className={/[A-Za-z]/.test(password) && /\d/.test(password) ? "met" : ""}>英字と数字を含む</li></ul></label>
                 <div className="auth-bottom-actions signup-bottom-actions">
-                  <label className="consent-control"><input name="consent" type="checkbox" /><span className="checkmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 7" /></svg></span><span><a href="#terms">利用規約</a>と<a href="#privacy">プライバシーポリシー</a>、学習データの取り扱いに同意します。</span></label>
-                  <button className="submit-button" type="submit" disabled={loading}>{loading ? <span className="button-spinner" /> : `${role === "teacher" ? "教師" : "学生"}として登録する`}</button>
+                  <label className="consent-control"><input name="consent" type="checkbox" /><span className="checkmark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 7" /></svg></span><span><a href="/terms" target="_blank" rel="noreferrer">利用規約</a>と<a href="/privacy" target="_blank" rel="noreferrer">プライバシーポリシー</a>、学習データの取り扱いに同意します。</span></label>
+                  <button className="submit-button" type="submit" disabled={busy}>{loading ? <span className="button-spinner" /> : `${role === "teacher" ? "教師" : "学生"}として登録する`}</button>
                 </div>
               </form>
             </section>
