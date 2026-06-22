@@ -1,57 +1,60 @@
 **Comparison Target**
 
-- Source visual truth path: `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-ee55035d-b4e5-4d84-949b-6cfeab820662.png`
-- Implementation screenshot path: unavailable for the authenticated dashboard; the production `/dashboard` route correctly redirected the signed-out QA session to `/`
-- Viewport: desktop default (1280 x 720) and mobile (375 x 844)
-- State: signed-out production authentication screen; dashboard comparison is authentication-blocked
+- Source visual truth path: `C:\Users\Admin\AppData\Local\Temp\codex-clipboard-8f23ba6e-17da-4f56-bfd7-ad6cf6bba8fa.png`
+- Implementation screenshot path: `D:\OneDrive - Kyushu Institute Of Technolgy\EmoAcademy\docs\design-qa\dashboard-compare.png`
+- Combined comparison path: `D:\OneDrive - Kyushu Institute Of Technolgy\EmoAcademy\docs\design-qa\dashboard-side-by-side.png`
+- Viewport: 1860 x 909 CSS pixels
+- State: signed-in-style student dashboard rendered with local preview data
 
 **Full-view Comparison Evidence**
 
-- The source is a signed-in Quizlet dashboard with a left navigation rail and rounded content cards.
-- EmoAcademy keeps its existing three-column learning workspace and applies the requested rounded-card language: 24 px surface radii, 18-20 px nested radii, pill actions, wider 22 px grid gaps, and a pale lavender page canvas.
-- A same-state rendered dashboard screenshot could not be captured without using or creating an account. No test account was created and no user credentials were requested.
+- The implementation matches the reference's major composition: persistent left navigation, one dominant central learning feed, restrained top navigation, large rounded content surfaces, and generous gutters.
+- EmoAcademy intentionally keeps the emotion monitor as a right-side learning tool instead of copying Quizlet's empty right margin.
+- The reference's dark navy theme was intentionally replaced with the user's requested login-screen atmosphere: pale blue/lilac gradients, dotted texture, translucent white cards, and saturated blue actions.
 
 **Focused Region Comparison Evidence**
 
-- Not available for the dashboard because the production route requires an authenticated Supabase session.
-- The authentication page was independently checked at desktop and mobile widths. Its JA/EN control, login/sign-up switching, and responsive width passed; mobile document width was 375 px with no horizontal overflow.
+- Sidebar: both designs use a narrow fixed rail, selected navigation surface, compact supporting text, and clear section grouping. EmoAcademy retains course progress and material selection because those are product functions.
+- Main feed: both designs use a centered rounded-card stack with a prominent resume action. EmoAcademy uses the first card for the current lesson and the next card for the active learning route.
+- Typography: headings and controls now use 900 weight; body and metadata use 700-800 weights. The prior thin appearance is no longer visible at desktop or mobile sizes.
 
 **Findings**
 
-- [P2] Authenticated dashboard visual comparison remains unverified
-  Location: `/dashboard`
-  Evidence: the source shows the signed-in dashboard, while the production QA session redirects unauthenticated visitors to the login screen.
-  Impact: card radii and spacing are compiled and deployed, but their final visual balance has not yet been judged from a rendered signed-in screen.
-  Fix: sign in once in the in-app browser, then capture desktop and mobile dashboard screenshots and compare them with the supplied Quizlet reference.
+- No actionable P0, P1, or P2 mismatches remain.
+- [P3] The emotion monitor creates a denser right side than the Quizlet reference.
+  Location: `.monitor-column`
+  Evidence: the reference leaves its right margin mostly open, while EmoAcademy exposes live learning feedback.
+  Impact: slightly higher information density, but the difference represents an existing core feature rather than accidental drift.
+  Follow-up: collapse the monitor into a drawer only if a calmer home view is preferred later.
 
 **Required Fidelity Surfaces**
 
-- Fonts and typography: implementation uses Nunito Sans first with Noto Sans JP for Japanese; build output confirms both Next font assets compile.
-- Spacing and layout rhythm: CSS now uses 22 px workspace gaps, 24 px cards, 18-20 px nested surfaces, and pill-shaped actions. Rendered dashboard confirmation is pending authentication.
-- Colors and visual tokens: the existing light EmoAcademy palette is intentionally retained; the screenshot is used for shape, spacing, and hierarchy rather than copied dark colors.
-- Image quality and asset fidelity: the existing classroom desk image remains sharp, square, and free of the dotted overlay. No new dashboard image assets were substituted.
-- Copy and content: login and sign-up copy is fully switchable between Japanese and English. Existing course and learning content remains intact.
+- Fonts and typography: Nunito Sans with Noto Sans JP fallback; 900-weight headings and controls, 700-800-weight body and metadata, stable wrapping at desktop and mobile.
+- Spacing and layout rhythm: fixed 238 px sidebar, 28 px desktop grid gap, 28 px main-card radii, 21-26 px nested radii, and full-width mobile card stacking.
+- Colors and visual tokens: blue `#4255ff`, pale cyan/lilac canvas, white glass surfaces, soft lavender borders, and high-contrast navy text align with the auth screen.
+- Image quality and asset fidelity: the existing EmoAcademy logo remains crisp; no reference illustration was replaced with a fake placeholder or CSS drawing.
+- Copy and content: EmoAcademy learning content and bilingual UI remain intact rather than copying Quizlet product copy.
 
 **Patches Made Since Previous QA Pass**
 
-- Replaced unavailable Hurme aliases with Nunito Sans and Noto Sans JP.
-- Added a compact JA/EN control to the authentication screen.
-- Localized login, sign-up, validation, recovery, and confirmation-email copy.
-- Increased dashboard card radii, inner-surface radii, workspace gaps, and button rounding.
-- Added responsive radius and spacing adjustments for tablet and mobile breakpoints.
+- Reframed the student dashboard as a left-fixed-navigation learning feed.
+- Added the login-screen dotted cyan/lilac background treatment.
+- Increased visual weight across headings, body copy, labels, metadata, and buttons.
+- Increased card radii, section spacing, button sizes, and selected-navigation emphasis.
+- Verified the mobile drawer and eliminated horizontal overflow at 375 px.
 
 **Implementation Checklist**
 
 - [x] ESLint
 - [x] Production build and TypeScript
-- [x] Production deployment Ready
-- [x] Authentication JA/EN interaction
-- [x] Login/sign-up interaction
-- [x] Mobile authentication overflow check
-- [ ] Authenticated dashboard screenshot comparison
+- [x] Desktop full-view comparison
+- [x] Sidebar and main-card focused comparison
+- [x] Mobile 375 px overflow check
+- [x] Mobile menu interaction
+- [x] JA/EN controls preserved
 
 **Follow-up Polish**
 
-- After one authenticated screenshot pass, tune any card density or sidebar-radius drift visible at the user's actual viewport.
+- Consider a user-controlled compact mode for the emotion monitor after real-user testing.
 
-final result: blocked
+final result: passed
