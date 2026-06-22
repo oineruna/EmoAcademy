@@ -16,7 +16,7 @@
 
 - Sidebar: both designs use a narrow fixed rail, selected navigation surface, compact supporting text, and clear section grouping. EmoAcademy retains course progress and material selection because those are product functions.
 - Main feed: both designs use a centered rounded-card stack with a prominent resume action. EmoAcademy uses the first card for the current lesson and the next card for the active learning route.
-- Typography: headings and controls now use 900 weight; body and metadata use 700-800 weights. The prior thin appearance is no longer visible at desktop or mobile sizes.
+- Typography: headings and controls use a moderate 800 weight; body and metadata use 600-700 weights with larger sizes. Desktop and mobile remain readable without the previous heavy appearance.
 
 **Findings**
 
@@ -29,7 +29,7 @@
 
 **Required Fidelity Surfaces**
 
-- Fonts and typography: Nunito Sans with Noto Sans JP fallback; 900-weight headings and controls, 700-800-weight body and metadata, stable wrapping at desktop and mobile.
+- Fonts and typography: Nunito Sans with Noto Sans JP fallback; 800-weight headings and controls, 600-700-weight body and metadata, larger sizes, and stable wrapping at desktop and mobile.
 - Spacing and layout rhythm: fixed 238 px sidebar, 28 px desktop grid gap, 28 px main-card radii, 21-26 px nested radii, and full-width mobile card stacking.
 - Colors and visual tokens: blue `#4255ff`, pale cyan/lilac canvas, white glass surfaces, soft lavender borders, and high-contrast navy text align with the auth screen.
 - Image quality and asset fidelity: the existing EmoAcademy logo remains crisp; no reference illustration was replaced with a fake placeholder or CSS drawing.
