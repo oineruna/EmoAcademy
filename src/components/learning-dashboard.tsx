@@ -3,7 +3,7 @@
 import { FormEvent, useState } from "react";
 import Image from "next/image";
 import {
-  BarChart3, Bell, BookOpen, Camera, ChevronDown, FileText, Folder,
+  BarChart3, BookOpen, Camera, ChevronDown, FileText, Folder,
   GraduationCap, Home, LogOut, Menu, MessageCircle, Play,
   Plus, Search, Sparkles, Trash2, Upload, Users, X,
 } from "lucide-react";
@@ -48,7 +48,7 @@ function AppHeader({ displayName, email, role, preview, menuOpen, setMenuOpen, m
   return <header className="lab-header">
     <div className="lab-header-brand"><button className="lab-mobile-menu" type="button" aria-label={t.menu} onClick={() => setMobileOpen(!mobileOpen)}>{mobileOpen ? <X /> : <Menu />}</button><a href="/dashboard"><Image src="/emoacademy-mark.png" width={38} height={38} alt="" unoptimized /><span><strong>EmoAcademy</strong><small>Learn · Practice · Improve</small></span></a></div>
     <form className="lab-search" onSubmit={(event) => { event.preventDefault(); document.getElementById("create-study-set")?.scrollIntoView({ behavior: "smooth" }); }}><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === "ja" ? "学習セット、教材、質問" : "Study sets, materials, questions"} aria-label={language === "ja" ? "検索" : "Search"} /></form>
-    <div className="lab-header-actions"><LanguageSwitch language={language} setLanguage={setLanguage} /><button className="lab-icon-button" type="button" aria-label={t.notice}><Bell /><i /></button><div className="lab-profile-wrap"><button className="lab-profile" type="button" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><span>{displayName.slice(0, 1).toUpperCase()}</span><div><strong>{displayName}</strong><small>{role === "teacher" ? t.teacher : t.student}</small></div><ChevronDown /></button>{menuOpen && <div className="lab-profile-menu"><p>{email}</p>{preview && <small>{t.preview}</small>}<button type="button" onClick={onLogout}><LogOut />{t.logout}</button><button className="danger" type="button" onClick={onDeleteAccount}><Trash2 />{t.delete}</button></div>}</div></div>
+    <div className="lab-header-actions"><LanguageSwitch language={language} setLanguage={setLanguage} /><div className="lab-profile-wrap"><button className="lab-profile" type="button" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><span>{displayName.slice(0, 1).toUpperCase()}</span><div><strong>{displayName}</strong><small>{role === "teacher" ? t.teacher : t.student}</small></div><ChevronDown /></button>{menuOpen && <div className="lab-profile-menu"><p>{email}</p>{preview && <small>{t.preview}</small>}<button type="button" onClick={onLogout}><LogOut />{t.logout}</button><button className="danger" type="button" onClick={onDeleteAccount}><Trash2 />{t.delete}</button></div>}</div></div>
   </header>;
 }
 
@@ -57,31 +57,45 @@ const emotions = [
   ["Happiness", 18], ["Neutral", 52], ["Sadness", 5], ["Surprise", 10],
 ] as const;
 
-function StudentWorkspace({ displayName, onOpenCamera, mobileOpen, language }: { displayName: string; onOpenCamera: () => void; mobileOpen: boolean; language: Language }) {
+function StudentWorkspace({ displayName, mobileOpen, language }: { displayName: string; mobileOpen: boolean; language: Language }) {
   const t = ui[language];
   const [activeNav, setActiveNav] = useState("home");
-  const [folderCreated, setFolderCreated] = useState(false);
+  const [groupCreated, setGroupCreated] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [resumeNotice, setResumeNotice] = useState("");
   const copy = language === "ja" ? {
-    home: "ホーム", library: "ライブラリー", groups: "学習グループ", notice: "通知", folders: "あなたのフォルダ", newFolder: "新しいフォルダ", start: "ここから始めましょう", cards: "単語カード", expert: "専門家による解決策", jump: "続きから始める", recent: "最近", personalize: "あなた向けの学習", exact: "必要なものを学習", continue: "続ける", create: "単語カードを作成", update: "学習目標を更新する", progress: "42% 完了", monitor: "感情モニター",
+    home: "ホーム", library: "ライブラリー", groups: "学習グループ", qa: "質問・先生の回答", groupTitle: "学習グループ", newGroup: "新しいグループ", start: "ここから始めましょう", cards: "単語カード", answers: "質問・先生の回答", jump: "続きから始める", recent: "最近", personalize: "あなた向けの学習", exact: "必要なものを学習", continue: "続ける", create: "単語カードを作成", update: "学習目標を更新する", progress: "42% 完了", monitor: "感情モニター", resumed: "前回の続きから開きます。", openDetail: "詳細を開く", closeDetail: "閉じる", noBlock: "右側に固定し、学習カードを隠しません。",
   } : {
-    home: "Home", library: "Library", groups: "Study groups", notice: "Notifications", folders: "Your folders", newFolder: "New folder", start: "Start here", cards: "Flashcards", expert: "Expert solutions", jump: "Jump back in", recent: "Recents", personalize: "Personalize your content", exact: "Study exactly what you need", continue: "Continue", create: "Create flashcards", update: "Update your learning goal", progress: "42% complete", monitor: "Emotion monitor",
+    home: "Home", library: "Library", groups: "Study groups", qa: "Q&A history", groupTitle: "Study groups", newGroup: "New group", start: "Start here", cards: "Flashcards", answers: "Questions & teacher answers", jump: "Jump back in", recent: "Recents", personalize: "Personalize your content", exact: "Study exactly what you need", continue: "Continue", create: "Create flashcards", update: "Update your learning goal", progress: "42% complete", monitor: "Emotion monitor", resumed: "Opening your last study activity.", openDetail: "Open detail", closeDetail: "Close", noBlock: "Pinned on the right so it does not cover study cards.",
   };
+  const navItems = [
+    ["home", copy.home, <Home key="home" />],
+    ["library", copy.library, <Folder key="library" />],
+    ["groups", copy.groups, <Users key="groups" />],
+    ["qa", copy.qa, <MessageCircle key="qa" />],
+  ] as const;
 
   return <main className="quiz-home-shell" aria-label={`${displayName} dashboard`}>
     <aside className={`quiz-home-sidebar ${mobileOpen ? "open" : ""}`}>
-      <nav className="quiz-primary-nav" aria-label={copy.home}>{[["home", copy.home, <Home key="home" />], ["library", copy.library, <Folder key="library" />], ["groups", copy.groups, <Users key="groups" />], ["notice", copy.notice, <Bell key="notice" />]].map(([id, label, icon]) => <button key={String(id)} className={activeNav === id ? "active" : ""} type="button" aria-pressed={activeNav === id} onClick={() => setActiveNav(String(id))}>{icon}<span>{label}</span></button>)}</nav>
-      <section className="quiz-side-section"><h2>{copy.folders}</h2><button type="button" className={folderCreated ? "created" : ""} onClick={() => setFolderCreated(true)}><Plus /><span>{folderCreated ? `${copy.newFolder} 1` : copy.newFolder}</span></button></section>
-      <section className="quiz-side-section"><h2>{copy.start}</h2><button type="button" onClick={() => document.getElementById("create-study-set")?.scrollIntoView({ behavior: "smooth" })}><BookOpen /><span>{copy.cards}</span></button><button type="button" onClick={() => document.getElementById("personalize")?.scrollIntoView({ behavior: "smooth" })}><GraduationCap /><span>{copy.expert}</span></button></section>
+      <nav className="quiz-primary-nav" aria-label={copy.home}>{navItems.map(([id, label, icon]) => <button key={id} className={activeNav === id ? "active" : ""} type="button" aria-pressed={activeNav === id} onClick={() => setActiveNav(id)}>{icon}<span>{label}</span></button>)}</nav>
+      <section className="quiz-side-section"><h2>{copy.groupTitle}</h2><button type="button" className={groupCreated ? "created" : ""} onClick={() => setGroupCreated(true)}><Plus /><span>{groupCreated ? `${copy.newGroup} 1` : copy.newGroup}</span></button></section>
+      <section className="quiz-side-section"><h2>{copy.start}</h2><button type="button" onClick={() => setActiveNav("library")}><BookOpen /><span>{copy.cards}</span></button><button type="button" onClick={() => setActiveNav("qa")}><GraduationCap /><span>{copy.answers}</span></button></section>
     </aside>
 
     <div className="quiz-home-feed">
-      <section className="quiz-feed-section"><h2>{copy.jump}</h2><article className="quiz-jump-card"><div><span>ENGLISH SPEAKING</span><h1>Greetings &amp; Introductions</h1><div className="quiz-progress"><i /></div><p>{copy.progress}</p><button type="button"><Play />{copy.continue}</button></div><Image src="/classroom-desk.jpg" width={330} height={210} alt="" unoptimized /></article></section>
-      <section className="quiz-feed-section quiz-recents"><h2>{copy.recent}</h2><button type="button"><span><BookOpen /></span><div><strong>Greetings &amp; Introductions</strong><small>12 terms · EmoAcademy</small></div></button></section>
-      <section className="quiz-feed-section" id="personalize"><h2>{copy.personalize}</h2><article className="quiz-personalize-card"><Sparkles /><h3>{language === "ja" ? "目標に合わせて、次の学習を見つけましょう" : "Find your next study activity based on your goals"}</h3><button type="button">{copy.update}</button></article></section>
-      <section className="quiz-feed-section" id="create-study-set"><h2>{copy.exact}</h2><article className="quiz-create-card"><div><span><FileText /></span><h3>{language === "ja" ? "自分だけの単語カードを作成" : "Create your own flashcards"}</h3><p>{language === "ja" ? "テストに必要な内容だけを学習できます。" : "Study exactly what is on your test."}</p><button type="button">{copy.create}</button></div><Image src="/classroom-desk.jpg" width={330} height={210} alt="" unoptimized /></article></section>
+      {activeNav === "home" && <>
+        <section className="quiz-feed-section"><h2>{copy.jump}</h2><article className="quiz-jump-card"><div><span>ENGLISH SPEAKING</span><h1>Greetings &amp; Introductions</h1><div className="quiz-progress"><i /></div><p>{resumeNotice || copy.progress}</p><button type="button" onClick={() => setResumeNotice(copy.resumed)}><Play />{copy.continue}</button></div><Image src="/classroom-desk.jpg" width={310} height={226} alt="" unoptimized /></article></section>
+        <section className="quiz-feed-section quiz-recents"><h2>{copy.recent}</h2><button type="button" onClick={() => setActiveNav("library")}><span><BookOpen /></span><div><strong>Greetings &amp; Introductions</strong><small>12 terms · EmoAcademy</small></div></button></section>
+        <section className="quiz-feed-section" id="personalize"><h2>{copy.personalize}</h2><article className="quiz-personalize-card"><Sparkles /><h3>{language === "ja" ? "目標に合わせて、次の学習を見つけましょう" : "Find your next study activity based on your goals"}</h3><button type="button">{copy.update}</button></article></section>
+      </>}
+      {activeNav === "library" && <section className="quiz-feed-section"><h2>{copy.library}</h2><div className="quiz-list-grid">{materialsSeed.map((material) => <button key={material.id} type="button" className="quiz-list-card" onClick={() => setResumeNotice(copy.resumed)}><span><FileText /></span><div><strong>{material.title}</strong><small>{material.subject} · {material.duration} min · {material.type}</small><p>{language === "ja" ? material.descriptionJa : material.descriptionEn}</p></div></button>)}</div><article className="quiz-create-card" id="create-study-set"><div><span><FileText /></span><h3>{language === "ja" ? "自分だけの単語カードを作成" : "Create your own flashcards"}</h3><p>{language === "ja" ? "テストに必要な内容だけを学習できます。" : "Study exactly what is on your test."}</p><button type="button">{copy.create}</button></div><Image src="/classroom-desk.jpg" width={330} height={210} alt="" unoptimized /></article></section>}
+      {activeNav === "groups" && <section className="quiz-feed-section"><h2>{copy.groups}</h2><article className="quiz-personalize-card study-group-card"><Users /><h3>{groupCreated ? (language === "ja" ? "新しいグループ 1" : "New group 1") : (language === "ja" ? "クラスや友達と同じ学習セットを進める" : "Study the same sets with classmates")}</h3><p>{language === "ja" ? "グループを作ると、メンバーの進捗や質問をまとめて確認できます。" : "Groups collect progress and questions from members in one place."}</p><button type="button" onClick={() => setGroupCreated(true)}>{copy.newGroup}</button></article></section>}
+      {activeNav === "qa" && <section className="quiz-feed-section"><h2>{copy.answers}</h2><div className="qa-history-list"><article><span>Q</span><div><strong>{language === "ja" ? "自己紹介の最後の一文を確認したい" : "Could you check the final sentence of my introduction?"}</strong><p>{language === "ja" ? "先生の回答: “Nice to meet you.” の後に、好きなことを1文足すと自然です。" : "Teacher answer: After “Nice to meet you,” add one sentence about something you like."}</p><small>Greetings &amp; Introductions · 12 min ago</small></div></article><article><span>Q</span><div><strong>{language === "ja" ? "発音より先に意識することは？" : "What should I focus on before pronunciation?"}</strong><p>{language === "ja" ? "先生の回答: まず会話を止めずに続けること。短い返答でもOKです。" : "Teacher answer: Keep the conversation going first. Short replies are fine."}</p><small>Conversation Practice · yesterday</small></div></article></div></section>}
     </div>
 
-    <aside className="quiz-emotion-panel"><section className="live-monitor-card"><header><div><i /><span>{copy.monitor.toUpperCase()}</span></div><button type="button" onClick={onOpenCamera}><Camera />{t.open}</button></header><div className="monitor-preview"><Camera /><p>{t.liveEmotion}</p><span>{t.cameraNote}</span><button type="button" onClick={onOpenCamera}>{t.start}</button></div><div className="monitor-reading"><div className="emotion-ring-small">52%</div><div><small>{t.liveEmotion.toUpperCase()}</small><strong>Neutral</strong><span>{t.steadyNote}</span></div></div><div className="emotion-breakdown">{emotions.map(([name, value]) => <div key={name}><span>{name}</span><i><b style={{ width: `${value}%` }} /></i><strong>{value}%</strong></div>)}</div><div className="monitor-latest"><small>{t.latest}</small><strong>{t.steady}</strong><span>Valence +0.18 · Arousal 0.46</span></div></section></aside>
+    <aside className="quiz-emotion-panel">
+      {cameraOpen ? <EmotionCamera language={language} onClose={() => setCameraOpen(false)} /> : <section className="live-monitor-card"><header><div><i /><span>{copy.monitor.toUpperCase()}</span></div><button type="button" onClick={() => setCameraOpen(true)}><Camera />{copy.openDetail}</button></header><div className="monitor-preview"><Camera /><p>{t.liveEmotion}</p><span>{copy.noBlock}</span><button type="button" onClick={() => setCameraOpen(true)}>{t.start}</button></div><div className="monitor-reading"><div className="emotion-ring-small">52%</div><div><small>{t.liveEmotion.toUpperCase()}</small><strong>Neutral</strong><span>{t.steadyNote}</span></div></div><div className="emotion-breakdown">{emotions.map(([name, value]) => <div key={name}><span>{name}</span><i><b style={{ width: `${value}%` }} /></i><strong>{value}%</strong></div>)}</div><div className="monitor-latest"><small>{t.latest}</small><strong>{t.steady}</strong><span>Valence +0.18 · Arousal 0.46</span></div></section>}
+    </aside>
   </main>;
 }
 
@@ -96,6 +110,6 @@ function TeacherWorkspace({ language }: { language: Language }) {
 }
 
 export function LearningDashboard(props: Props) {
-  const [cameraOpen, setCameraOpen] = useState(false); const [menuOpen, setMenuOpen] = useState(false); const [mobileOpen, setMobileOpen] = useState(false); const [language, setLanguage] = useState<Language>("ja");
-  return <div className="lab-shell"><AppHeader {...props} menuOpen={menuOpen} setMenuOpen={setMenuOpen} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} language={language} setLanguage={setLanguage} />{props.message && <p className="dashboard-message">{props.message}</p>}{props.role === "teacher" ? <TeacherWorkspace language={language} /> : <StudentWorkspace displayName={props.displayName} onOpenCamera={() => setCameraOpen(true)} mobileOpen={mobileOpen} language={language} />}{cameraOpen && <EmotionCamera language={language} onClose={() => setCameraOpen(false)} />}</div>;
+  const [menuOpen, setMenuOpen] = useState(false); const [mobileOpen, setMobileOpen] = useState(false); const [language, setLanguage] = useState<Language>("ja");
+  return <div className="lab-shell"><AppHeader {...props} menuOpen={menuOpen} setMenuOpen={setMenuOpen} mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} language={language} setLanguage={setLanguage} />{props.message && <p className="dashboard-message">{props.message}</p>}{props.role === "teacher" ? <TeacherWorkspace language={language} /> : <StudentWorkspace displayName={props.displayName} mobileOpen={mobileOpen} language={language} />}</div>;
 }

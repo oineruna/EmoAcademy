@@ -11,7 +11,7 @@ export default function ResetPasswordPage() {
   async function updatePassword(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const password = String(new FormData(event.currentTarget).get("password") || "");
-    if (password.length < 8) { setMessage("Password must be at least 8 characters long."); return; }
+    if (password.length < 8) { setMessage("パスワードは8文字以上で入力してください。"); return; }
     const client = getSupabaseBrowserClient("local");
     if (!client) { setMessage("Supabaseが未設定です。"); return; }
     setLoading(true);

@@ -1,187 +1,517 @@
 # EmoAcademy 仕様書
 
-最終更新: 2026-06-20
+最終更新: 2026-06-23  
+対象リポジトリ: `EmoAcademy`  
+公開予定URL: <https://emo-academy.vercel.app>
 
-## 1. 目的
+## 1. この仕様書の目的
 
-EmoAcademyは、学生と教師が利用するオンライン学習プラットフォームです。学生は教材を選び、短い学習手順に沿って練習し、質問を送信できます。教師は教材の追加、学生への割り当て、進捗と質問の確認ができます。
+この文書は、EmoAcademyを自分で保守・拡張・公開できるようにするための仕様書です。画面の見た目だけでなく、ログイン、Supabase、Vercel、GitHub、データ保存、今後追加すべきテーブルまで含めます。
 
-感情モニターは学習を補助する任意機能です。表情から成績や能力を決定するものではありません。
+専門用語は初出で説明します。実装済みと未実装を分け、あとで「どこまで本当にできているのか」が分かるようにします。
 
-## 2. 対象利用者
+## 2. プロダクト概要
 
-- 学生: 教材の学習、確認問題、自己説明、質問、進捗確認を行う。
-- 教師: 教材の追加・割り当て、学生の進捗と質問の確認を行う。
-- 管理者: 現段階では専用画面を実装しない。ユーザー管理はSupabase管理画面を使用する。
+EmoAcademyは、学生と教師が使う学習プラットフォームです。
 
-## 3. 実装済み機能
+- 学生はログイン後、Quizletに近いホーム画面で学習セット、最近の学習、学習再開、感情モニターを確認する。
+- 教師は教材の追加、割り当て、学生進捗、コメント確認を行う。
+- 認証はSupabase Authを使う。
+- 公開はVercelを使う。
+- コード管理はGitHubを使う。
 
-### 3.1 認証
+感情モニターは学習支援のための補助機能です。成績判定、処罰、能力判定には使いません。
 
-- メールアドレスとパスワードによる新規登録・ログイン
-- Googleログイン
-- 学生・教師のロール選択
-- パスワード再設定
-- ログアウト
-- アカウント削除
-- Supabase Authによるセッション管理
+## 3. 対象ユーザー
 
-**ロール**とは、利用者の種類と権限を表す値です。現在は`student`（学生）と`teacher`（教師）があります。
+### 3.1 学生
 
-**セッション**とは、ログイン状態を安全に維持するための情報です。パスワードそのものはブラウザやアプリのファイルへ保存しません。
+- メール/パスワードまたはGoogleでログインする。
+- 学習セットを再開する。
+- 最近の学習内容を見る。
+- 感情モニターを任意で起動する。
+- 日本語/英語を切り替える。
 
-### 3.2 学生画面
+### 3.2 教師
 
-- コースと教材の選択
-- 教材の概要、所要時間、形式の表示
-- コメント・質問の追加
-- 完了状態の切り替え
-- 4段階の学習ルート
-  1. 思い出す
-  2. 例を見る
-  3. 自分の言葉で説明する
-  4. ヒントなしで確認する
-- 回答前の自信度選択
-- 正誤フィードバック
-- 翌日の復習予定への追加
-- 感情モニターとArousal–Valence表示
-- 日本語・英語の一時切り替え
+- 教材を追加する。
+- 教材を学生へ割り当てる。
+- 学生の進捗やコメントを確認する。
+- 日本語/英語を切り替える。
 
-**Arousal–Valence**とは、状態を「活発さ（Arousal）」と「快・不快の方向（Valence）」の2軸で表す方法です。本実装の値は画面確認用の簡易推定であり、感情を正確に診断する値ではありません。
+### 3.3 管理者
 
-### 3.3 教師画面
+現時点では、サイト内に専用の管理画面はありません。管理者はSupabaseの管理画面でユーザー、プロフィール、ロールを確認します。
 
-- PDFまたはWebリンク教材の入力
-- タイトル、科目、所要時間、URL、学習指示の入力
-- 学生IDによる教材割り当て操作
-- 教材一覧
-- 学生進捗一覧
-- 最近のコメント表示
+## 4. 現在の技術構成
 
-現在の教材入力と割り当ては画面内デモ状態です。永続保存にはSupabase DatabaseとStorageへの接続が必要です。
+| 項目           | 使用技術                       | 役割                                               |
+| -------------- | ------------------------------ | -------------------------------------------------- |
+| フロントエンド | Next.js 16 / React 19          | 画面、ページ、ユーザー操作を作る                   |
+| 言語           | TypeScript                     | JavaScriptに型チェックを追加する                   |
+| スタイル       | CSS / Tailwind v4 PostCSS依存  | 見た目、レスポンシブ、アニメーション               |
+| 認証           | Supabase Auth                  | 新規登録、ログイン、Googleログイン、セッション管理 |
+| データベース   | Supabase Database / PostgreSQL | プロフィール、ロール、将来的な進捗保存             |
+| サーバー処理   | Supabase Edge Functions        | アカウント削除など、ブラウザに秘密鍵を置けない処理 |
+| ホスティング   | Vercel                         | Webサイトの公開と自動デプロイ                      |
+| コード管理     | GitHub                         | ソースコードの保存、履歴管理、Vercel連携           |
 
-## 4. 学習設計と参考論文
+### 用語説明
 
-### 4.1 行動につながるダッシュボード
+- **フロントエンド**: ユーザーがブラウザで見る画面側の実装。
+- **Next.js**: Reactを使ってWebアプリを作るためのフレームワーク。ページ遷移、ビルド、公開向け最適化を扱う。
+- **React**: 画面を部品単位で作るJavaScriptライブラリ。
+- **TypeScript**: JavaScriptに型を追加した言語。文字列と数値の取り違えなどを見つけやすくする。
+- **PostgreSQL**: Supabaseの中で使われるデータベース。
+- **ホスティング**: Webサイトをインターネット上で見られるように置くこと。
+- **デプロイ**: 作ったコードを公開サーバーへ反映すること。
 
-進捗値だけを並べず、「次にすること」「おすすめの理由」「再開ボタン」を同じ場所へ配置しました。これは学習分析ダッシュボードが、認識だけでなく具体的な行動へつながる必要があるという研究を参考にしています。
+## 5. 現在のアプリ構成
 
-- Susnjak, Ramaswami, & Mathrani (2022), [Learning analytics dashboard: a tool for providing actionable insights to learners](https://pmc.ncbi.nlm.nih.gov/articles/PMC8853217/)
-
-**学習分析（Learning Analytics）**とは、学習履歴を集めて、進捗把握や次の学習行動の判断に利用する方法です。
-
-### 4.2 思い出す練習
-
-最初と最後に、答えを見る前に思い出す操作を入れました。単に読み直すだけではなく、記憶から取り出す練習を行うためです。
-
-- Roediger & Karpicke (2006), [Test-Enhanced Learning](https://doi.org/10.1111/j.1467-9280.2006.01693.x)
-
-**想起練習（Retrieval Practice）**とは、覚えた内容を見直す前に、自分の記憶から答えを取り出す練習です。
-
-### 4.3 自己説明
-
-例を見た後に、「なぜこの流れで会話が続くのか」を自分の言葉で書く欄を追加しました。
-
-- Chi et al. (1994), [Eliciting Self-Explanations Improves Understanding](https://doi.org/10.1207/s15516709cog1803_3)
-
-**自己説明（Self-explanation）**とは、学習内容の理由やつながりを、自分の言葉で説明する学習方法です。
-
-### 4.4 自信度と学習の振り返り
-
-確認問題の回答前に自信度を選択します。正解だけでなく、「自信があったか」「推測だったか」を区別し、次の復習判断へつなげるためです。
-
-- Guo (2022), [Using metacognitive prompts to enhance self-regulated learning and learning outcomes](https://doi.org/10.1111/jcal.12650)
-
-**メタ認知**とは、自分が何を理解し、何を理解していないかを自分で把握する働きです。
-
-### 4.5 学習者が制御できるアニメーション
-
-説明やヒントは自動再生せず、学習者がボタンを押した時だけ表示します。常時動く装飾を避け、学習段階の切り替え、進捗、選択、正誤など意味がある変化だけを短く動かします。
-
-- Hasler, Kersten, & Sweller (2007/2009), [Learner control in animated multimedia instructions](https://doi.org/10.1007/s11251-009-9119-4)
-
-**学習者制御（Learner Control）**とは、再生、停止、次へ進む操作などを学習者自身が選べる設計です。
-
-## 5. アニメーション仕様
-
-- ボタンホバー: 約160msで1px上へ移動する。
-- ボタン押下: 約160msで少し縮小し、押した感触を示す。
-- 選択状態: 約240msの小さな拡大と復帰で、状態変更を示す。
-- 学習段階の変更: 約220msで右から短く表示する。
-- 正誤・ヒント・目標メニュー: 約180msで出現する。
-- 常時ループする装飾は使用しない。ただしLIVE状態の小さな点だけは状態表示として点滅する。
-- OSの`prefers-reduced-motion`設定が有効な場合、アニメーション時間をほぼ0にする。
-
-**prefers-reduced-motion**とは、画面の動きを減らしたいという利用者のOS設定をWebサイトへ伝える仕組みです。
-
-## 6. フォント仕様
-
-QuizletのWeb表示で使われる`Hurme Geometric Sans No. 2`系のフォント名を第1候補に指定しています。
-
-```css
-font-family: "hurmegeo sans no2", "hurme_no2-webfont",
-  "Hurme Geometric Sans No. 2", "Nunito Sans", "Noto Sans JP", sans-serif;
+```text
+EmoAcademy
+├─ src
+│  ├─ app
+│  │  ├─ page.tsx                 ログイン/新規登録画面
+│  │  ├─ dashboard/page.tsx        ログイン後画面
+│  │  ├─ auth/callback/page.tsx    メール確認/Googleログイン後の戻り先
+│  │  ├─ reset-password/page.tsx   パスワード再設定
+│  │  ├─ terms/page.tsx            利用規約
+│  │  ├─ privacy/page.tsx          プライバシーポリシー
+│  │  ├─ layout.tsx                フォント、メタ情報、favicon
+│  │  └─ globals.css               全体スタイル
+│  ├─ components
+│  │  ├─ auth-screen.tsx           認証画面
+│  │  ├─ learning-dashboard.tsx    学生/教師ダッシュボード
+│  │  ├─ emotion-camera.tsx        感情モニター
+│  │  └─ learning-session.tsx      学習セッション部品候補
+│  └─ lib/supabase/client.ts       Supabase接続
+├─ supabase
+│  ├─ migrations                   DBテーブル作成SQL
+│  └─ functions/delete-account     アカウント削除Edge Function
+├─ public
+│  ├─ emoacademy-mark.png          ロゴ/favicon
+│  └─ classroom-desk.jpg           ログイン/カード用画像
+├─ docs
+│  └─ SPECIFICATION.md             この仕様書
+└─ next.config.ts                  Next.js設定
 ```
 
-Hurme Geometric Sans No. 2は商用フォントです。EmoAcademyにはライセンス不明のフォントファイルを複製していません。利用端末または正式に購入したWebフォントが存在する場合はHurmeを使用し、存在しない場合は英語をNunito Sans、日本語をNoto Sans JPで表示します。
+## 6. 画面仕様
 
-## 7. 技術構成
+### 6.1 ログイン/新規登録画面
 
-- Next.js: Reactを使ってWeb画面とページ遷移を構成する仕組み。
-- TypeScript: JavaScriptへ型の検査を追加し、入力ミスを見つけやすくする言語。
-- Supabase Auth: 新規登録、ログイン、セッションを管理するサービス。
-- Supabase Database: PostgreSQL形式のデータベース。プロフィールを保存する。
-- Supabase Edge Function: サーバー側で安全にアカウント削除を行う小さな処理。
-- Vercel: GitHubへ反映したNext.jsアプリを公開するサービス。
-- localStorage: ブラウザ内だけに小さな状態を保存する仕組み。現在は学習ルートの完了状態を保存する。
+実装ファイル: `src/components/auth-screen.tsx`
 
-## 8. 主要ファイル
+主な機能:
 
-- `src/components/auth-screen.tsx`: 新規登録・ログイン画面
-- `src/components/learning-dashboard.tsx`: 学生・教師ダッシュボード
-- `src/components/learning-session.tsx`: 論文知見を反映した4段階学習
-- `src/components/emotion-camera.tsx`: 任意のカメラ確認機能
-- `src/lib/supabase/client.ts`: Supabase接続
-- `src/app/globals.css`: 色、余白、レスポンシブ表示、アニメーション
-- `supabase/migrations`: データベース作成・変更SQL
-- `supabase/functions/delete-account`: アカウント削除処理
+- ログイン/新規登録タブ
+- メールアドレス/パスワードログイン
+- Googleログイン
+- 新規登録時のみロール選択
+  - 学生
+  - 教師
+- パスワード強度バー
+- パスワード表示/非表示
+- ログインしたままにする
+- パスワード復旧
+- 確認メール再送
+- 利用規約/プライバシーポリシー/学習データ取り扱い同意
+- 日本語/英語切り替え
 
-## 9. データとプライバシー
+### 6.2 学生ダッシュボード
 
-- パスワードはSupabase Authが安全な形式で管理し、アプリから閲覧できない。
-- Publishable Keyはブラウザ公開を前提とする。Secret Keyはブラウザへ置かない。
-- カメラは利用者が開始した時だけ使用する。
-- 現在のカメラ映像はサーバーへ送信しない。
-- 感情推定を成績、処罰、教師評価へ直接利用しない。
-- 学習データを保存するテーブルにはRLSを設定する。
+実装ファイル: `src/components/learning-dashboard.tsx`
 
-**RLS（Row Level Security）**とは、データベースの各行について「本人だけが見られる」などのアクセス条件を設定する仕組みです。
+現在はQuizlet風の構成です。
 
-## 10. レスポンシブ対応
+- 左サイドメニュー
+  - ホーム
+  - ライブラリー
+  - 学習グループ
+  - 通知
+  - 新しいフォルダ
+  - 単語カード
+  - 専門家による解決策
+- 中央フィード
+  - 続きから始める
+  - 最近
+  - あなた向けの学習
+  - 単語カード作成カード
+- 右側
+  - 感情モニター
+  - Neutral / Valence / Arousal 表示
 
-- PC: コース、教材、感情モニターを3列で表示する。
-- 中型画面: 感情モニターを教材下へ移動する。
-- スマートフォン: コース一覧を開閉メニューにし、学習領域を1列表示する。
-- 学習4段階はスマートフォンで2列表示にする。
+現時点の学生画面の進捗値や教材はデモデータです。Supabaseへ永続保存するには、後述の進捗テーブルが必要です。
 
-## 11. 整理結果
+### 6.3 教師ダッシュボード
 
-- EmoAcademy本体は認証、学習画面、Supabase、画像だけの小さな構成であり、削除可能な独立ページや未使用画像はありませんでした。
-- `online-learning-site`からプロジェクト全体や大量のUIライブラリはコピーせず、学習ルート、自己説明、自信度、次の復習という必要な考え方だけを小さな独立コンポーネントへ移植しました。
-- 元の`learning1-emotion_detection-main`は参照元として残し、EmoAcademyの実行には依存させていません。
+実装ファイル: `src/components/learning-dashboard.tsx`
 
-## 12. 現在の制限と次の実装候補
+主な機能:
 
-1. 教材・コメント・完了状態をSupabaseへ永続保存する。
-2. 教師がクラスを作り、招待コードで学生が参加できるようにする。
-3. 学習履歴から復習日を計算する間隔反復を追加する。
-4. 教材ファイルをSupabase Storageへ保存する。
-5. 教師画面へ学習者別の詳細表示を追加する。
-6. 感情推定は研究モデルが完成するまで「補助シグナル」として扱い、本人が停止・削除できるようにする。
+- 教材追加フォーム
+- PDFまたはWebリンク教材の選択
+- 教材タイトル、科目、所要時間、URL、学習指示
+- 学生IDへの割り当て操作
+- 教材一覧
+- 学生進捗一覧
+- 最近のコメント
 
-**間隔反復（Spaced Repetition）**とは、一度に繰り返すのではなく、時間を空けて復習する方法です。
+現時点では教師画面もデモ状態です。入力した教材はブラウザ上の状態として扱われ、Supabaseへ永続保存されません。
 
-## 13. 動作確認
+### 6.4 感情モニター
+
+実装ファイル: `src/components/emotion-camera.tsx`
+
+主な仕様:
+
+- ユーザーが「開始」を押した時だけカメラを使う。
+- 映像はサーバーへ送信しない。
+- ブラウザ上で明るさ変化から簡易的なValence/Arousal風の値を作る。
+- 研究用の正確な感情認識モデルではない。
+- UI確認用のデモシグナルとして扱う。
+
+### 用語説明
+
+- **Valence**: 快/不快の方向を表す軸。
+- **Arousal**: 活性度、つまり落ち着いているか興奮しているかを表す軸。
+- **ローカル処理**: サーバーへ送らず、利用者のブラウザ内で処理すること。
+
+## 7. 認証仕様
+
+### 7.1 使用サービス
+
+認証はSupabase Authを使用します。
+
+Supabase Authが担当するもの:
+
+- ユーザー登録
+- ログイン
+- Google OAuthログイン
+- メール確認
+- パスワード再設定
+- セッション管理
+- パスワードの安全な保存
+
+アプリ側でパスワードそのものを見ることはできません。Supabase管理画面でも、パスワードの生データは見られません。
+
+### 7.2 ログイン方法
+
+| 方法              | 実装状況 | 備考                                   |
+| ----------------- | -------: | -------------------------------------- |
+| メール/パスワード | 実装済み | Supabase Auth                          |
+| Googleログイン    | 実装済み | Supabase側とGoogle Cloud側の設定が必要 |
+| Microsoftログイン |   未実装 | 必要ならSupabase Provider追加          |
+| Appleログイン     |   未実装 | Apple Developer設定が必要              |
+
+### 7.3 セッション
+
+**セッション**とは、ログイン状態を維持するための情報です。
+
+EmoAcademyでは2種類の保存先を使い分けます。
+
+| ユーザー操作              | 保存先         | 挙動                              |
+| ------------------------- | -------------- | --------------------------------- |
+| ログインしたままにするON  | localStorage   | ブラウザを閉じても残りやすい      |
+| ログインしたままにするOFF | sessionStorage | タブ/ブラウザを閉じると消えやすい |
+
+Supabaseの認証フローはPKCEを使います。
+
+### 用語説明
+
+- **OAuth**: Googleなど外部サービスのアカウントでログインする仕組み。
+- **PKCE**: OAuthログイン時に、途中で認証コードを盗まれても悪用されにくくする仕組み。
+- **localStorage**: ブラウザ内にデータを残す保存場所。
+- **sessionStorage**: タブ単位で一時的にデータを残す保存場所。
+
+## 8. Supabaseデータ仕様
+
+### 8.1 現在あるテーブル
+
+#### `auth.users`
+
+Supabase Authが内部で管理するユーザーテーブルです。
+
+保存される主な情報:
+
+- ユーザーID
+- メールアドレス
+- ログイン方法
+- 作成日時
+- 最終ログイン日時
+
+このテーブルはSupabaseのAuthentication画面で確認できます。
+
+場所:
+
+```text
+Supabase Dashboard
+→ Authentication
+→ Users
+```
+
+#### `public.profiles`
+
+EmoAcademy側で作成しているプロフィールテーブルです。
+このテーブルに、表示名だけでなくユーザーのロールも保存します。
+
+ロールをSupabase Authの内部テーブルだけに置かない理由は、アプリ側から安全に読みやすく、画面分岐や今後の権限制御に使いやすいからです。`auth.users` は認証そのものを管理し、`public.profiles` はEmoAcademyで使うユーザー属性を管理します。
+
+定義:
+
+| カラム         | 型          | 内容                                              |
+| -------------- | ----------- | ------------------------------------------------- |
+| `id`           | uuid        | `auth.users.id` と同じユーザーID                  |
+| `display_name` | text        | 表示名                                            |
+| `role`         | text        | アプリ内ロール。現在は `student` または `teacher` |
+| `created_at`   | timestamptz | 作成日時                                          |
+| `updated_at`   | timestamptz | 更新日時                                          |
+
+ロールはここに保存されます。ログイン後の学生画面/教師画面の切り替えも、この `profiles.role` を読む前提です。
+
+場所:
+
+```text
+Supabase Dashboard
+→ Table Editor
+→ profiles
+```
+
+### 8.2 ユーザーとロールを見るSQL
+
+Supabase SQL Editorで以下を実行すると、メールアドレスとロールをまとめて確認できます。
+
+```sql
+select
+  u.id,
+  u.email,
+  p.display_name,
+  p.role,
+  u.created_at,
+  u.last_sign_in_at
+from auth.users u
+left join public.profiles p on p.id = u.id
+order by u.created_at desc;
+```
+
+### 8.3 RLS
+
+`profiles` にはRLSを設定しています。
+
+**RLS（Row Level Security）**とは、データベースの行ごとに「誰が見られるか」「誰が更新できるか」を制限する仕組みです。
+
+現在の方針:
+
+- ユーザーは自分のプロフィールだけ読める。
+- ユーザーは自分のプロフィールだけ更新できる。
+- `role` は `student` または `teacher` のみ。
+
+### 8.4 ロール管理方針
+
+EmoAcademyでは、ロールを `public.profiles.role` で管理します。
+
+現在のロール:
+
+| ロール    | 意味 | 表示される画面                       |
+| --------- | ---- | ------------------------------------ |
+| `student` | 学生 | 学習ホーム、学習セット、感情モニター |
+| `teacher` | 教師 | 教材追加、割り当て、学生進捗確認     |
+
+ロール保存の流れ:
+
+1. 新規登録フォームで学生/教師を選択する。
+2. Supabase Authへユーザーが作られる。
+3. DBトリガー `handle_new_user()` が `public.profiles` に行を作る。
+4. `raw_user_meta_data.role` が `student` または `teacher` の場合、それを `profiles.role` に保存する。
+5. ログイン後、`dashboard/page.tsx` が `profiles.role` を読み、学生画面か教師画面を表示する。
+
+Googleログインの場合は、OAuthのリダイレクト後に `auth/callback/page.tsx` が選択済みロールを `profiles.role` へ反映します。
+
+将来的に管理者ロールを追加する場合は、`role` のcheck制約とアプリ側の分岐を同時に更新します。例: `admin`、`school_admin`。
+
+**DBトリガー**とは、データベース上で特定の出来事が起きた時に自動実行される処理です。ここでは「Authユーザーが作成されたら、プロフィールも自動作成する」ために使っています。
+
+## 9. 今後必要なデータベース設計
+
+現在、プロフィール以外の学習データは本格保存されていません。学習サイトとして運用するなら、以下のテーブルを追加します。
+
+### 9.1 `learning_sets`
+
+学習セットを保存するテーブル。
+
+| カラム        | 内容                     |
+| ------------- | ------------------------ |
+| `id`          | 学習セットID             |
+| `owner_id`    | 作成者のユーザーID       |
+| `title`       | タイトル                 |
+| `description` | 説明                     |
+| `visibility`  | private / class / public |
+| `created_at`  | 作成日時                 |
+
+### 9.2 `learning_items`
+
+単語カードや問題を保存するテーブル。
+
+| カラム        | 内容               |
+| ------------- | ------------------ |
+| `id`          | 項目ID             |
+| `set_id`      | 所属する学習セット |
+| `front`       | 表面、問題文       |
+| `back`        | 裏面、答え         |
+| `order_index` | 表示順             |
+
+### 9.3 `learning_progress`
+
+学生ごとの進捗を保存するテーブル。
+
+| カラム            | 内容           |
+| ----------------- | -------------- |
+| `id`              | 進捗ID         |
+| `user_id`         | 学生ユーザーID |
+| `set_id`          | 学習セットID   |
+| `completed_count` | 完了した項目数 |
+| `total_count`     | 全項目数       |
+| `last_studied_at` | 最終学習日時   |
+| `next_review_at`  | 次回復習予定   |
+
+### 9.4 `classes`
+
+教師が作るクラスを保存するテーブル。
+
+| カラム        | 内容           |
+| ------------- | -------------- |
+| `id`          | クラスID       |
+| `teacher_id`  | 教師ユーザーID |
+| `name`        | クラス名       |
+| `invite_code` | 招待コード     |
+
+### 9.5 `class_members`
+
+どの学生がどのクラスに所属しているかを保存するテーブル。
+
+| カラム     | 内容              |
+| ---------- | ----------------- |
+| `class_id` | クラスID          |
+| `user_id`  | 学生ユーザーID    |
+| `role`     | student / teacher |
+
+### 9.6 `emotion_sessions`
+
+感情モニターの利用ログを保存する場合のテーブル。
+
+| カラム       | 内容         |
+| ------------ | ------------ |
+| `id`         | セッションID |
+| `user_id`    | ユーザーID   |
+| `started_at` | 開始日時     |
+| `ended_at`   | 終了日時     |
+| `summary`    | 集計結果     |
+
+注意: 現在は映像を保存しません。将来保存する場合も、映像ではなく集計値だけにする方が安全です。
+
+## 10. Vercel仕様
+
+### 10.1 Vercelの役割
+
+Vercelは、EmoAcademyのNext.jsアプリをインターネット上に公開するサービスです。
+
+GitHubと連携している場合:
+
+- `main` ブランチへpushすると本番URLが更新される。
+- `main` 以外へpushするとPreview URLが作られる。
+
+### 10.2 本番URL
+
+```text
+https://emo-academy.vercel.app
+```
+
+### 10.3 必要な環境変数
+
+Vercel Project Settings → Environment Variables に設定します。
+
+```text
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+```
+
+### 用語説明
+
+- **環境変数**: コードに直接書かず、Vercelやローカル環境に保存する設定値。
+- **Publishable Key**: ブラウザに置いてよい公開用キー。SupabaseのRLSと組み合わせて安全に使う。
+- **Secret Key / Service Role Key**: 絶対にブラウザへ置かない秘密鍵。管理者権限を持つ。
+
+## 11. Supabase側で必要な設定
+
+### 11.1 URL Configuration
+
+Supabase Dashboardで設定します。
+
+```text
+Authentication
+→ URL Configuration
+```
+
+設定例:
+
+```text
+Site URL:
+https://emo-academy.vercel.app
+
+Redirect URLs:
+https://emo-academy.vercel.app/auth/callback
+https://emo-academy.vercel.app/reset-password
+```
+
+### 11.2 Google Provider
+
+```text
+Authentication
+→ Sign In / Providers
+→ Google
+```
+
+必要なもの:
+
+- Google Cloud Consoleで作成したClient ID
+- Google Cloud Consoleで作成したClient Secret
+- Supabaseが指定するCallback URLをGoogle Cloud側へ登録
+
+### 11.3 Confirm Email
+
+独自ドメインやCustom SMTPを用意しない場合、確認メールが届きにくいことがあります。テスト段階ではConfirm EmailをOFFにして動作確認してもよいです。
+
+本番運用では、確認メールをONにし、Resendなどのメール配信サービスをCustom SMTPとして設定する方が安全です。
+
+### 用語説明
+
+- **SMTP**: メールを送信するための仕組み。
+- **Resend**: 開発者向けのメール配信サービス。Supabaseの確認メール送信に使える。
+- **独自ドメイン**: `emo-academy.com` のような自分で所有するドメイン。
+
+## 12. ローカル開発
+
+### 12.1 起動
+
+```powershell
+cd "D:\OneDrive - Kyushu Institute Of Technolgy\EmoAcademy"
+npm install
+npm run dev
+```
+
+### 12.2 ローカル環境変数
+
+`.env.local` に以下を置きます。
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://xxxxxxxx.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxxxxxxx
+```
+
+`.env.local` はGitHubに上げません。秘密情報や環境ごとの設定を守るためです。
+
+### 12.3 確認コマンド
 
 ```powershell
 npm run lint
@@ -189,4 +519,238 @@ npm run typecheck
 npm run build
 ```
 
-公開URL: <https://emo-academy.vercel.app>
+### 12.4 静的出力
+
+`next.config.ts` で以下を設定しています。
+
+```ts
+output: "export";
+```
+
+これは、Next.jsを静的HTMLとして書き出す設定です。現状のアプリはクライアント側からSupabaseへ接続するため、この方式で動きます。
+
+ただし、Next.jsのサーバー機能を使うAPIやSSRを増やす場合は、この設定を見直す必要があります。
+
+### 用語説明
+
+- **静的HTML**: サーバーで毎回ページを作らず、事前に作ったHTML/CSS/JSを配信する方式。
+- **SSR**: Server-Side Renderingの略。アクセス時にサーバー側でHTMLを作る方式。
+- **API Route**: Next.js内にサーバー側処理を作る仕組み。
+
+## 13. GitHub運用
+
+### 13.1 基本フロー
+
+```powershell
+git status
+git add .
+git commit -m "Update EmoAcademy"
+git push origin main
+```
+
+VercelとGitHubが連携済みなら、`main` にpushした後にVercelが自動で本番デプロイします。
+
+### 13.2 注意点
+
+- `.env.local` はpushしない。
+- `node_modules` はpushしない。
+- SupabaseのService Role Keyは絶対にpushしない。
+- 大きい画像や不要な参照元フォルダを混ぜない。
+
+## 14. UI/デザイン仕様
+
+### 14.1 デザイン方向
+
+- Quizletに近い、丸みのあるカード型レイアウト。
+- 左側に固定メニュー。
+- 中央に学習フィード。
+- 右側に感情モニター。
+- ログイン画面は淡い青背景、点線、liquid glass風カード。
+- 学習画面はログイン画面と近い青系のポップな印象。
+
+### 14.2 フォント
+
+現在は以下の方針です。
+
+- 英語: Poppins
+- 日本語: Noto Sans JP
+
+実装:
+
+```ts
+import { Noto_Sans_JP, Poppins } from "next/font/google";
+```
+
+Quizlet本体はHurme系フォントを使っていることがありますが、Hurmeは商用フォントです。そのためEmoAcademyでは無料で使いやすいPoppinsとNoto Sans JPを採用します。
+
+### 14.3 アニメーション
+
+使用するアニメーション:
+
+- ボタンホバー時の小さな浮き上がり
+- ボタン押下時の軽い縮小
+- 選択状態の短い反応
+- カード操作時の自然な反応
+- 感情モニターのLIVE表示
+
+避けるアニメーション:
+
+- 画面ロード時の大きなスライドイン
+- 学習内容を邪魔する常時派手な動き
+- 意味のない装飾だけの過剰なループ
+
+## 15. セキュリティとプライバシー
+
+### 15.1 パスワード
+
+パスワードはSupabase Authが管理します。アプリ側、GitHub、Vercel、Supabaseの通常画面でパスワードそのものを見ることはできません。
+
+### 15.2 Service Role Key
+
+Service Role Keyは管理者権限の秘密鍵です。ブラウザに出してはいけません。
+
+現在、アカウント削除はSupabase Edge Functionで実行する設計です。Edge Function側だけがService Role Keyを使います。
+
+### 15.3 カメラ
+
+- ユーザーが開始した時だけ使用。
+- 映像はサーバーへ送信しない。
+- 現在はデモ推定。
+- 本番で保存する場合は、映像ではなく統計値だけを保存する。
+- いつでも停止できるUIを維持する。
+
+## 16. アカウント削除仕様
+
+実装ファイル:
+
+```text
+supabase/functions/delete-account/index.ts
+```
+
+流れ:
+
+1. ユーザーがダッシュボードで「アカウント削除」を押す。
+2. ブラウザからSupabase Edge Functionを呼ぶ。
+3. Edge Functionがログイン中ユーザーを確認する。
+4. Service Role Keyを使ってSupabase Authのユーザーを削除する。
+5. `profiles.id` は `auth.users.id` を参照しているため、プロフィールも連動削除される。
+
+### 用語説明
+
+- **Edge Function**: Supabase上で動く小さなサーバー処理。ブラウザに置けない秘密処理に使う。
+- **Cascade Delete**: 親データが消えた時に、関連する子データも自動で消す仕組み。
+
+## 17. 現在の制限
+
+現在できていないこと:
+
+- 学習セットの永続保存
+- 単語カードの永続保存
+- 学生ごとの進捗保存
+- 教師が作成した教材のSupabase保存
+- 教材PDFのSupabase Storage保存
+- クラス作成
+- 招待コード
+- 教師が学生個人の詳細進捗を見る画面
+- 感情モニター結果の保存
+- 本格的な間隔反復
+
+### 用語説明
+
+- **永続保存**: ページを閉じても、別端末で開いても、データが残る保存方式。
+- **Supabase Storage**: PDFや画像などのファイルを保存するSupabaseの機能。
+- **間隔反復**: 忘れかけるタイミングで復習する学習方法。
+
+## 18. 次に実装するとよい順番
+
+1. `learning_sets` と `learning_items` を作る。
+2. 学生の `learning_progress` を保存する。
+3. 教師用の `classes` と `class_members` を作る。
+4. 教材PDFをSupabase Storageへ保存する。
+5. 教師がクラス別/学生別に進捗を見る画面を作る。
+6. Googleログイン時のロール設定をさらに安定化する。
+7. ResendなどでCustom SMTPを設定し、確認メールを本番対応にする。
+8. 感情モニターは保存前に同意UIと削除UIを作る。
+
+## 19. 構築者が知っておくべき確認場所
+
+### 19.1 ユーザー一覧を見る
+
+```text
+Supabase Dashboard
+→ Authentication
+→ Users
+```
+
+見るもの:
+
+- 登録メールアドレス
+- User ID
+- 作成日
+- 最終ログイン
+- ログインProvider
+
+### 19.2 ロールを見る
+
+```text
+Supabase Dashboard
+→ Table Editor
+→ profiles
+```
+
+見るもの:
+
+- `display_name`
+- `role`
+- `id`
+
+### 19.3 Vercelの公開状態を見る
+
+```text
+Vercel Dashboard
+→ emo-academy
+→ Deployments
+```
+
+見るもの:
+
+- ビルド成功/失敗
+- 本番URL
+- Preview URL
+- エラーログ
+
+### 19.4 環境変数を見る
+
+```text
+Vercel Dashboard
+→ emo-academy
+→ Settings
+→ Environment Variables
+```
+
+見るもの:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+
+## 20. 完了条件
+
+現時点でのMVP完了条件:
+
+- メール/パスワードで新規登録できる。
+- Googleログインできる。
+- 学生/教師のロールが `profiles` に保存される。
+- ログイン後、ロールに応じた画面へ入れる。
+- 学生画面はQuizlet風の左メニュー、中央フィード、感情モニターを持つ。
+- 教師画面は教材追加と学生進捗確認のUIを持つ。
+- Vercelで `https://emo-academy.vercel.app` が表示できる。
+- Supabaseで登録ユーザーとロールを確認できる。
+
+本格運用の完了条件:
+
+- 学習セット、カード、進捗、クラス、教材ファイルがSupabaseへ保存される。
+- 教師がクラス単位で進捗を確認できる。
+- 学生が自分の進捗を別端末でも見られる。
+- メール確認が安定して届く。
+- プライバシー方針と利用規約が最終化されている。
+- 感情モニターの保存有無、削除方法、同意方法が明確になっている。

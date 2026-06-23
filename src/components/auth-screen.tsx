@@ -88,6 +88,11 @@ export function AuthScreen() {
     setPendingSignupEmail("");
   }
 
+  function changeLanguage(next: Language) {
+    setLanguage(next);
+    setStatus(null);
+  }
+
   function requireClient(storage: "local" | "session" = "local") {
     const client = getSupabaseBrowserClient(storage);
     if (!client) {
@@ -251,7 +256,7 @@ export function AuthScreen() {
         <div className="liquid-orb orb-one" aria-hidden="true" />
         <div className="liquid-orb orb-two" aria-hidden="true" />
         <div className={`auth-inner ${mode}-mode`}>
-          <header className="brand-row"><span className="brand"><Image className="brand-mark" src="/emoacademy-mark.png" width={38} height={38} alt="" priority unoptimized />EmoAcademy</span><div className="auth-language-switch" aria-label="Language"><button className={language === "ja" ? "active" : ""} type="button" aria-pressed={language === "ja"} onClick={() => setLanguage("ja")}>JA</button><button className={language === "en" ? "active" : ""} type="button" aria-pressed={language === "en"} onClick={() => setLanguage("en")}>EN</button></div></header>
+          <header className="brand-row"><span className="brand"><Image className="brand-mark" src="/emoacademy-mark.png" width={38} height={38} alt="" priority unoptimized />EmoAcademy</span><div className="auth-language-switch" aria-label="Language"><button className={language === "ja" ? "active" : ""} type="button" aria-pressed={language === "ja"} onClick={() => changeLanguage("ja")}>JA</button><button className={language === "en" ? "active" : ""} type="button" aria-pressed={language === "en"} onClick={() => changeLanguage("en")}>EN</button></div></header>
           <div className="auth-tabs" role="tablist" aria-label={t.authMethods}>
             <button type="button" role="tab" aria-selected={mode === "signup"} aria-controls="signup-panel" disabled={busy} className={`auth-tab ${mode === "signup" ? "active" : ""}`} onClick={() => switchMode("signup")}>{t.signup}</button>
             <button type="button" role="tab" aria-selected={mode === "login"} aria-controls="login-panel" disabled={busy} className={`auth-tab ${mode === "login" ? "active" : ""}`} onClick={() => switchMode("login")}>{t.login}</button>
