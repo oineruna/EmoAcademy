@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Noto_Sans_JP, Nunito_Sans } from "next/font/google";
+import { Noto_Sans_JP, Poppins } from "next/font/google";
 import "./globals.css";
 
 const notoSansJp = Noto_Sans_JP({
@@ -7,9 +7,10 @@ const notoSansJp = Noto_Sans_JP({
   subsets: ["latin"],
 });
 
-const nunitoSans = Nunito_Sans({
-  variable: "--font-nunito-sans",
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       lang="ja"
-      className={`${notoSansJp.variable} ${nunitoSans.variable}`}
+      className={`${notoSansJp.variable} ${poppins.variable}`}
     >
       <body>{children}</body>
     </html>

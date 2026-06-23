@@ -3,12 +3,11 @@
 import { FormEvent, useState } from "react";
 import Image from "next/image";
 import {
-  BarChart3, Bell, BookOpen, Camera, CheckCircle2, ChevronDown, Clock3,
-  ExternalLink, FileText, Library, LogOut, Menu, MessageCircle, Play,
-  Plus, Trash2, Upload, Users, X,
+  BarChart3, Bell, BookOpen, Camera, ChevronDown, FileText, Folder,
+  GraduationCap, Home, LogOut, Menu, MessageCircle, Play,
+  Plus, Search, Sparkles, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { EmotionCamera } from "@/components/emotion-camera";
-import { LearningSession } from "@/components/learning-session";
 
 type Language = "ja" | "en";
 type Props = { displayName: string; email: string; role: string; preview: boolean; message: string; onLogout: () => void; onDeleteAccount: () => void };
@@ -45,8 +44,10 @@ function LanguageSwitch({ language, setLanguage }: { language: Language; setLang
 
 function AppHeader({ displayName, email, role, preview, menuOpen, setMenuOpen, mobileOpen, setMobileOpen, onLogout, onDeleteAccount, language, setLanguage }: Props & { menuOpen: boolean; setMenuOpen: (value: boolean) => void; mobileOpen: boolean; setMobileOpen: (value: boolean) => void; language: Language; setLanguage: (language: Language) => void }) {
   const t = ui[language];
+  const [search, setSearch] = useState("");
   return <header className="lab-header">
     <div className="lab-header-brand"><button className="lab-mobile-menu" type="button" aria-label={t.menu} onClick={() => setMobileOpen(!mobileOpen)}>{mobileOpen ? <X /> : <Menu />}</button><a href="/dashboard"><Image src="/emoacademy-mark.png" width={38} height={38} alt="" unoptimized /><span><strong>EmoAcademy</strong><small>Learn · Practice · Improve</small></span></a></div>
+    <form className="lab-search" onSubmit={(event) => { event.preventDefault(); document.getElementById("create-study-set")?.scrollIntoView({ behavior: "smooth" }); }}><Search /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={language === "ja" ? "学習セット、教材、質問" : "Study sets, materials, questions"} aria-label={language === "ja" ? "検索" : "Search"} /></form>
     <div className="lab-header-actions"><LanguageSwitch language={language} setLanguage={setLanguage} /><button className="lab-icon-button" type="button" aria-label={t.notice}><Bell /><i /></button><div className="lab-profile-wrap"><button className="lab-profile" type="button" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><span>{displayName.slice(0, 1).toUpperCase()}</span><div><strong>{displayName}</strong><small>{role === "teacher" ? t.teacher : t.student}</small></div><ChevronDown /></button>{menuOpen && <div className="lab-profile-menu"><p>{email}</p>{preview && <small>{t.preview}</small>}<button type="button" onClick={onLogout}><LogOut />{t.logout}</button><button className="danger" type="button" onClick={onDeleteAccount}><Trash2 />{t.delete}</button></div>}</div></div>
   </header>;
 }
@@ -58,25 +59,29 @@ const emotions = [
 
 function StudentWorkspace({ displayName, onOpenCamera, mobileOpen, language }: { displayName: string; onOpenCamera: () => void; mobileOpen: boolean; language: Language }) {
   const t = ui[language];
-  const [materials] = useState(materialsSeed);
-  const [selectedId, setSelectedId] = useState(1);
-  const [completed, setCompleted] = useState<number[]>([]);
-  const [comments, setComments] = useState<Array<{ name: string; text: string; time: string }>>([]);
-  const [comment, setComment] = useState("");
-  const selected = materials.find((material) => material.id === selectedId) ?? materials[0];
-  const description = language === "ja" ? selected.descriptionJa : selected.descriptionEn;
+  const [activeNav, setActiveNav] = useState("home");
+  const [folderCreated, setFolderCreated] = useState(false);
+  const copy = language === "ja" ? {
+    home: "ホーム", library: "ライブラリー", groups: "学習グループ", notice: "通知", folders: "あなたのフォルダ", newFolder: "新しいフォルダ", start: "ここから始めましょう", cards: "単語カード", expert: "専門家による解決策", jump: "続きから始める", recent: "最近", personalize: "あなた向けの学習", exact: "必要なものを学習", continue: "続ける", create: "単語カードを作成", update: "学習目標を更新する", progress: "42% 完了", monitor: "感情モニター",
+  } : {
+    home: "Home", library: "Library", groups: "Study groups", notice: "Notifications", folders: "Your folders", newFolder: "New folder", start: "Start here", cards: "Flashcards", expert: "Expert solutions", jump: "Jump back in", recent: "Recents", personalize: "Personalize your content", exact: "Study exactly what you need", continue: "Continue", create: "Create flashcards", update: "Update your learning goal", progress: "42% complete", monitor: "Emotion monitor",
+  };
 
-  function submitComment(event: FormEvent) { event.preventDefault(); const value = comment.trim(); if (!value) return; setComments((items) => [...items, { name: displayName, text: value, time: new Date().toLocaleTimeString(language === "ja" ? "ja-JP" : "en-US", { hour: "2-digit", minute: "2-digit" }) }]); setComment(""); }
-  function goNext() { const index = materials.findIndex((item) => item.id === selectedId); setSelectedId(materials[(index + 1) % materials.length].id); }
+  return <main className="quiz-home-shell" aria-label={`${displayName} dashboard`}>
+    <aside className={`quiz-home-sidebar ${mobileOpen ? "open" : ""}`}>
+      <nav className="quiz-primary-nav" aria-label={copy.home}>{[["home", copy.home, <Home key="home" />], ["library", copy.library, <Folder key="library" />], ["groups", copy.groups, <Users key="groups" />], ["notice", copy.notice, <Bell key="notice" />]].map(([id, label, icon]) => <button key={String(id)} className={activeNav === id ? "active" : ""} type="button" aria-pressed={activeNav === id} onClick={() => setActiveNav(String(id))}>{icon}<span>{label}</span></button>)}</nav>
+      <section className="quiz-side-section"><h2>{copy.folders}</h2><button type="button" className={folderCreated ? "created" : ""} onClick={() => setFolderCreated(true)}><Plus /><span>{folderCreated ? `${copy.newFolder} 1` : copy.newFolder}</span></button></section>
+      <section className="quiz-side-section"><h2>{copy.start}</h2><button type="button" onClick={() => document.getElementById("create-study-set")?.scrollIntoView({ behavior: "smooth" })}><BookOpen /><span>{copy.cards}</span></button><button type="button" onClick={() => document.getElementById("personalize")?.scrollIntoView({ behavior: "smooth" })}><GraduationCap /><span>{copy.expert}</span></button></section>
+    </aside>
 
-  return <main className="student-workspace">
-    <aside className={`course-sidebar ${mobileOpen ? "open" : ""}`}><section className="course-summary"><p>COURSE</p><h2>English Speaking</h2><span>{t.courseDescription}</span><div className="course-progress"><i /></div><footer><span>{t.progress}</span><strong>42%</strong></footer></section><section className="side-section"><header><span>{t.materials.toUpperCase()}</span><b>{materials.length}</b></header><div className="material-nav">{materials.map((material) => <button key={material.id} className={selectedId === material.id ? "active" : ""} type="button" aria-pressed={selectedId === material.id} onClick={() => setSelectedId(material.id)}><span>{completed.includes(material.id) ? <CheckCircle2 /> : <FileText />}</span><div><strong>{material.title}</strong><small>{material.type} · {material.duration} min</small></div></button>)}</div></section><nav className="course-links" aria-label={t.materials}><a className="active" href="#lesson"><BookOpen />{t.lesson}</a><a href="#materials"><Library />{t.materials}</a><a href="#comments"><MessageCircle />{t.comments}</a></nav></aside>
-    <div className="lesson-column"><section className="lesson-overview" id="lesson"><div className="lesson-path">English Speaking Course / Unit 1 / Lesson 1</div><div className="lesson-title-row"><div><span>BEGINNER</span><h1>English Speaking Practice</h1><p>Topic: Greetings &amp; Introductions</p></div><button type="button" onClick={() => document.getElementById("learning-cycle-title")?.scrollIntoView({ behavior: "smooth", block: "start" })}><Play />{t.resume}</button></div><div className="lesson-progress-head"><span>Lesson progress</span><strong>65% Complete</strong></div><div className="lesson-progress-bar"><i /></div></section>
-      <LearningSession key={language} language={language} />
-      <section className="learning-card" id="materials"><header><div><span>LEARNING CONTENT</span><h2>{t.assigned}</h2></div><button type="button"><ExternalLink />{t.open}</button></header><label className="material-select-label"><span>{t.materials}</span><select value={selectedId} onChange={(event) => setSelectedId(Number(event.target.value))}>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></label><div className="selected-material"><span><FileText /></span><div><small>{selected.subject}</small><h3>{selected.title}</h3><p>{description}</p><footer><Clock3 />{t.estimate} {selected.duration} min <b>{selected.type}</b></footer></div></div><div className="material-actions"><button className={completed.includes(selected.id) ? "selected" : ""} type="button" aria-pressed={completed.includes(selected.id)} onClick={() => setCompleted((items) => items.includes(selected.id) ? items.filter((id) => id !== selected.id) : [...items, selected.id])}><CheckCircle2 />{t.complete}</button><button type="button" onClick={goNext}>{t.next}</button></div></section>
-      <section className="learning-card comments-card" id="comments"><header><div><span>INTERACTION</span><h2>{t.questions}</h2></div><b>{comments.length + 1}</b></header><div className="comment-list"><article><span>{t.teacherName.slice(0, 1)}</span><div><header><strong>{t.teacherName}</strong><time>10:24</time></header><p>{t.teacherComment}</p></div></article>{comments.map((item, index) => <article key={`${item.time}-${index}`}><span>{item.name.slice(0, 1)}</span><div><header><strong>{item.name}</strong><time>{item.time}</time></header><p>{item.text}</p></div></article>)}</div><form onSubmit={submitComment}><textarea value={comment} onChange={(event) => setComment(event.target.value)} placeholder={t.commentPlaceholder} rows={3} maxLength={1000} /><button type="submit">{t.send}</button></form></section>
+    <div className="quiz-home-feed">
+      <section className="quiz-feed-section"><h2>{copy.jump}</h2><article className="quiz-jump-card"><div><span>ENGLISH SPEAKING</span><h1>Greetings &amp; Introductions</h1><div className="quiz-progress"><i /></div><p>{copy.progress}</p><button type="button"><Play />{copy.continue}</button></div><Image src="/classroom-desk.jpg" width={330} height={210} alt="" unoptimized /></article></section>
+      <section className="quiz-feed-section quiz-recents"><h2>{copy.recent}</h2><button type="button"><span><BookOpen /></span><div><strong>Greetings &amp; Introductions</strong><small>12 terms · EmoAcademy</small></div></button></section>
+      <section className="quiz-feed-section" id="personalize"><h2>{copy.personalize}</h2><article className="quiz-personalize-card"><Sparkles /><h3>{language === "ja" ? "目標に合わせて、次の学習を見つけましょう" : "Find your next study activity based on your goals"}</h3><button type="button">{copy.update}</button></article></section>
+      <section className="quiz-feed-section" id="create-study-set"><h2>{copy.exact}</h2><article className="quiz-create-card"><div><span><FileText /></span><h3>{language === "ja" ? "自分だけの単語カードを作成" : "Create your own flashcards"}</h3><p>{language === "ja" ? "テストに必要な内容だけを学習できます。" : "Study exactly what is on your test."}</p><button type="button">{copy.create}</button></div><Image src="/classroom-desk.jpg" width={330} height={210} alt="" unoptimized /></article></section>
     </div>
-    <aside className="monitor-column"><section className="live-monitor-card"><header><div><i /><span>{t.monitor.toUpperCase()}</span></div><button type="button" onClick={onOpenCamera}><Camera />{t.open}</button></header><div className="session-material"><label>{t.selectSession}</label><select value={selectedId} onChange={(event) => setSelectedId(Number(event.target.value))}>{materials.map((material) => <option key={material.id} value={material.id}>{material.title}</option>)}</select></div><div className="monitor-preview"><Camera /><p>{t.liveEmotion}</p><span>{t.cameraNote}</span><button type="button" onClick={onOpenCamera}>{t.start}</button></div><div className="monitor-reading"><div className="emotion-ring-small">52%</div><div><small>{t.liveEmotion.toUpperCase()}</small><strong>Neutral</strong><span>{t.steadyNote}</span></div></div><div className="emotion-breakdown">{emotions.map(([name, value]) => <div key={name}><span>{name}</span><i><b style={{ width: `${value}%` }} /></i><strong>{value}%</strong></div>)}</div><div className="monitor-latest"><small>{t.latest}</small><strong>{t.steady}</strong><span>Valence +0.18 · Arousal 0.46</span></div><div className="mini-timeline"><span>{t.timeline}</span><svg viewBox="0 0 240 50" role="img" aria-label={t.timeline}><path d="M2 35 C30 29, 48 39, 71 25 S112 16, 137 27 S178 37, 199 20 S225 23, 238 13" /><line x1="0" y1="25" x2="240" y2="25" /></svg></div></section><section className="session-note"><BarChart3 /><div><strong>{t.today}</strong><p>{t.focusTime}</p></div></section></aside>
+
+    <aside className="quiz-emotion-panel"><section className="live-monitor-card"><header><div><i /><span>{copy.monitor.toUpperCase()}</span></div><button type="button" onClick={onOpenCamera}><Camera />{t.open}</button></header><div className="monitor-preview"><Camera /><p>{t.liveEmotion}</p><span>{t.cameraNote}</span><button type="button" onClick={onOpenCamera}>{t.start}</button></div><div className="monitor-reading"><div className="emotion-ring-small">52%</div><div><small>{t.liveEmotion.toUpperCase()}</small><strong>Neutral</strong><span>{t.steadyNote}</span></div></div><div className="emotion-breakdown">{emotions.map(([name, value]) => <div key={name}><span>{name}</span><i><b style={{ width: `${value}%` }} /></i><strong>{value}%</strong></div>)}</div><div className="monitor-latest"><small>{t.latest}</small><strong>{t.steady}</strong><span>Valence +0.18 · Arousal 0.46</span></div></section></aside>
   </main>;
 }
 
