@@ -115,10 +115,10 @@ function toPercentBox(box: FaceBox, width: number, height: number) {
 
 export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => void; language?: "ja" | "en" }) {
   const text = language === "ja" ? {
-    stopped: "カメラは停止中", measuring: "学習シグナルを計測中", denied: "カメラを使えません。ブラウザの権限を確認してください。", close: "閉じる", local: "端末内デモ推定", startOnly: "開始時だけカメラを使用", stop: "停止", start: "計測開始", current: "現在", trace: "集中トレース", samples: "直近18サンプル", privacy: "映像はサーバーへ送信しません。旧デモの顔ROI・Arousal/Valence構造をブラウザ内の簡易推定として移植しています。", title: "感情チェック", active: "活性", positive: "ポジティブ", highEnergy: "高めの活性", positiveFocus: "前向きな集中", needsPause: "休憩サイン", steadyFocus: "安定した集中", liveEmotion: "Live Emotion", modelSource: "推定方式", faceRoi: "顔領域ROI", fallback: "中央推定", latest: "最新", session: "Session Material", material: "Greetings & Introductions",
+    stopped: "カメラは停止中", measuring: "学習シグナルを計測中", denied: "カメラを使えません。ブラウザの権限を確認してください。", close: "閉じる", local: "リアルタイム", startOnly: "開始時だけカメラを使用", stop: "停止", start: "計測開始", current: "現在", trace: "集中トレース", samples: "直近18サンプル", title: "感情チェック", active: "活性", positive: "ポジティブ", highEnergy: "高めの活性", positiveFocus: "前向きな集中", needsPause: "休憩サイン", steadyFocus: "安定した集中", liveEmotion: "Live Emotion", latest: "最新", session: "Session Material", material: "Greetings & Introductions",
     labels: { anger: "怒り", contempt: "軽蔑", disgust: "嫌悪", fear: "不安", happiness: "前向き", neutral: "中立", sadness: "低下", surprise: "驚き" } as Record<EmotionKey, string>,
   } : {
-    stopped: "Camera is off", measuring: "Measuring study signals", denied: "Camera unavailable. Check your browser permission.", close: "Close", local: "On-device demo", startOnly: "Camera starts only when requested", stop: "Stop", start: "Start", current: "Current", trace: "Focus trace", samples: "Latest 18 samples", privacy: "Video is not sent to a server. The source demo’s face ROI and Arousal/Valence structure are ported here as a lightweight browser signal.", title: "Emotion check-in", active: "ACTIVE", positive: "POSITIVE", highEnergy: "High energy", positiveFocus: "Positive focus", needsPause: "Needs a pause", steadyFocus: "Steady focus", liveEmotion: "Live Emotion", modelSource: "Model source", faceRoi: "Face ROI", fallback: "Center prior", latest: "Latest", session: "Session Material", material: "Greetings & Introductions",
+    stopped: "Camera is off", measuring: "Measuring study signals", denied: "Camera unavailable. Check your browser permission.", close: "Close", local: "Live", startOnly: "Camera starts only when requested", stop: "Stop", start: "Start", current: "Current", trace: "Focus trace", samples: "Latest 18 samples", title: "Emotion check-in", active: "ACTIVE", positive: "POSITIVE", highEnergy: "High energy", positiveFocus: "Positive focus", needsPause: "Needs a pause", steadyFocus: "Steady focus", liveEmotion: "Live Emotion", latest: "Latest", session: "Session Material", material: "Greetings & Introductions",
     labels: { anger: "Anger", contempt: "Contempt", disgust: "Disgust", fear: "Fear", happiness: "Happiness", neutral: "Neutral", sadness: "Sadness", surprise: "Surprise" } as Record<EmotionKey, string>,
   };
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -188,7 +188,6 @@ export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => voi
   const dotX = 50 + sample.valence * 38;
   const dotY = 88 - sample.arousal * 76;
   const path = history.map((item, index) => `${(index / Math.max(1, history.length - 1)) * 100},${44 - item.valence * 28}`).join(" ");
-  const sourceLabel = faceBox?.source === "skin-roi" ? text.faceRoi : text.fallback;
   const boxStyle = faceBox ? toPercentBox(faceBox, 96, 72) : undefined;
   const ringSweep = Math.round((summary.dominantPct / 100) * 360);
 
@@ -234,7 +233,6 @@ export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => voi
           <small>{text.liveEmotion}</small>
           <strong>{text.labels[summary.dominant]}</strong>
           <p>{text.latest}: Valence {sample.valence.toFixed(2)} · Arousal {sample.arousal.toFixed(2)}</p>
-          <em>{text.modelSource}: {sourceLabel}</em>
         </div>
       </div>
       <div className="emotion-percent-list">
@@ -247,7 +245,6 @@ export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => voi
         ))}
       </div>
       <div className="signal-timeline"><div><strong>{text.trace}</strong><span>{text.samples}</span></div><svg viewBox="0 0 100 48" preserveAspectRatio="none"><line x1="0" y1="24" x2="100" y2="24" /><polyline points={path || "0,24 100,24"} /></svg></div>
-      <p className="privacy-note">{text.privacy}</p>
     </section>
   );
 }
