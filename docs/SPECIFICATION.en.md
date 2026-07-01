@@ -52,9 +52,10 @@ There is no dedicated admin screen in the web app yet. Administrators currently 
 | Styling | CSS / Tailwind v4 PostCSS dependency | Layout, responsive design, and animations |
 | Authentication | Supabase Auth | Sign up, login, Google login, and sessions |
 | Database | Supabase Database / PostgreSQL | Profiles, roles, and future learning data |
-| Server-side secure logic | Supabase Edge Functions | Secure operations such as account deletion |
+| Server-side secure logic | Supabase Edge Functions / Hugging Face Space | Secure operations such as account deletion and the emotion inference API |
 | Hosting | Vercel | Publishes the web app |
 | Code hosting | GitHub | Stores code history and connects to Vercel |
+| Emotion inference | Hugging Face Spaces / PyTorch | Runs `enet_b0_8_va_mtl.pt` for frame-level emotion inference |
 
 ### Terms
 
@@ -89,11 +90,15 @@ EmoAcademy
 ├─ supabase
 │  ├─ migrations                   Database migration SQL
 │  └─ functions/delete-account     Account deletion Edge Function
+├─ hf-emotion-api                  Emotion inference API for Hugging Face Spaces
+│  ├─ app.py
+│  └─ models/enet_b0_8_va_mtl.pt
 ├─ public
 │  ├─ emoacademy-mark.png          Logo and favicon
 │  └─ classroom-desk.jpg           Login/card image
 ├─ docs
 │  ├─ SPECIFICATION.md             Japanese specification
+│  ├─ COMPLETED.md                 Explanation of completed items
 │  └─ SPECIFICATION.en.md          English specification
 └─ next.config.ts                  Next.js configuration
 ```
@@ -130,10 +135,7 @@ The current student dashboard is Quizlet-inspired.
   - Home
   - Library
   - Study groups
-  - Notifications
-  - New folder
   - Flashcards
-  - Expert solutions
 - Center feed
   - Jump back in
   - Recents
@@ -141,7 +143,8 @@ The current student dashboard is Quizlet-inspired.
   - Create flashcards card
 - Right side
   - Emotion monitor
-  - Neutral / Valence / Arousal display
+  - Shared card structure for idle and LIVE states
+  - Mood/energy, emotion percentages, and realtime timeline
 
 Current progress values and study materials are demo data. Persistent learning progress requires the future progress tables described below.
 
@@ -167,17 +170,21 @@ File: `src/components/emotion-camera.tsx`
 
 Main behavior:
 
-- The camera starts only when the user presses the start button.
-- Video is not sent to a server.
-- The browser calculates a simple Valence/Arousal-like signal based on brightness changes.
-- This is not a research-grade emotion-recognition model.
-- It is a demo signal for UI validation.
+- Opening the emotion monitor starts the camera.
+- Idle and LIVE states use the same card structure.
+- The browser performs a lightweight local estimate at short intervals so the UI moves in real time.
+- About every 2.5 seconds, the app sends a frame image to the Hugging Face Emotion API and applies inference from `enet_b0_8_va_mtl.pt`.
+- The app stores numeric logs such as `valence`, `arousal`, dominant emotion, confidence, and model metadata. It does not store raw video.
+- This is a learning-support signal and must not be used for grading, punishment, or ability judgment.
+- Reference source: camera, face region, timeline, and Valence/Arousal update structure from `C:\Users\Admin\Downloads\learning1-emotion_detection-main`.
 
 ### Terms
 
 - **Valence**: A positive/negative emotional direction axis.
 - **Arousal**: An activation level axis, from calm to highly active.
 - **Local processing**: Processing performed inside the user’s browser without sending data to a server.
+- **Hugging Face Space**: A hosting environment for Python APIs and static websites. This project uses it for the web mirror and the emotion inference API.
+- **PyTorch**: A Python library for running machine-learning models.
 
 ## 7. Authentication specification
 
@@ -681,10 +688,10 @@ Account deletion is handled by a Supabase Edge Function so the Service Role Key 
 
 ### 15.3 Camera
 
-- Camera starts only when the user requests it.
-- Video is not sent to the server.
-- The current implementation is a demo signal.
-- If saving is added later, save only summary/statistical values, not raw video.
+- The camera starts only when the user opens the emotion monitor.
+- Frame images are sent to the Hugging Face Emotion API for inference.
+- Raw video is not stored.
+- Saved data should be limited to numeric inference logs, not raw video.
 - The user must always be able to stop the monitor.
 
 ## 16. Account deletion

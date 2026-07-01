@@ -29,7 +29,7 @@ npm run typecheck
 npm run build
 ```
 
-詳細は[仕様書](docs/SPECIFICATION.md)を参照してください。
+詳細は[仕様書](docs/SPECIFICATION.md)と[完了したものの解説](docs/COMPLETED.md)を参照してください。
 
 ## Hugging Face Spacesで使う場合
 

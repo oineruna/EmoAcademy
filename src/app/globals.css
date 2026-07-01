@@ -512,3 +512,137 @@ form{display:grid;gap:16px}.field-grid{display:grid;grid-template-columns:1fr 1.
   .emotion-summary-card{grid-template-columns:62px minmax(0,1fr)}
   .emotion-ring-detail{width:62px;height:62px}
 }
+
+/* Realtime emotion monitor polish: open and closed states share the same visual language. */
+.quiz-emotion-panel .emotion-dock-preview .emotion-dock-head>button{
+  font-size:20px;
+  line-height:1;
+}
+.quiz-emotion-panel .emotion-dock.is-live{
+  box-shadow:0 24px 62px rgba(48,66,126,.16),inset 0 1px rgba(255,255,255,.98);
+}
+.quiz-emotion-panel .emotion-dock.is-live .emotion-dock-head small{
+  background:#e8fff5;
+  color:#138461;
+  box-shadow:0 0 0 5px rgba(36,195,145,.08);
+}
+.quiz-emotion-panel .emotion-dock.is-idle .emotion-dock-head small{
+  background:#eef3ff;
+  color:#6677d6;
+}
+.camera-frame-preview{
+  width:100%;
+  border:0;
+  cursor:pointer;
+  text-align:center;
+}
+.camera-frame-preview:hover .camera-placeholder span{
+  transform:translateY(-2px) scale(1.04);
+}
+.camera-frame-preview .camera-placeholder span{
+  transition:transform .18s ease, box-shadow .18s ease;
+}
+.camera-frame-preview .camera-controls em{
+  padding:7px 11px;
+  border-radius:999px;
+  background:#fff;
+  color:#243250;
+  font-size:10px;
+  font-style:normal;
+  font-weight:900;
+  box-shadow:0 8px 18px rgba(20,28,48,.14);
+}
+.camera-controls span{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
+.camera-dot-live{
+  width:7px;
+  height:7px;
+  display:inline-block;
+  border-radius:999px;
+  background:#aeb8cc;
+}
+.camera-dot-live.active{
+  background:#24c391;
+  box-shadow:0 0 0 6px rgba(36,195,145,.16);
+  animation:live-pulse 1.2s ease-in-out infinite;
+}
+.quiz-emotion-panel .emotion-dock.is-live .camera-frame::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:linear-gradient(105deg,transparent 0%,rgba(255,255,255,.16) 45%,transparent 60%);
+  transform:translateX(-120%);
+  animation:monitor-scan 2.2s linear infinite;
+}
+.quiz-emotion-panel .emotion-dock.is-live .circumplex i{
+  animation:emotion-dot-breathe 1.35s ease-in-out infinite;
+}
+.signal-timeline{
+  position:relative;
+}
+.signal-timeline svg{
+  overflow:visible;
+}
+.signal-timeline .valence-line{
+  fill:none;
+  stroke:#4255ff;
+  stroke-width:2.2;
+  vector-effect:non-scaling-stroke;
+  transition:all .22s linear;
+}
+.signal-timeline .arousal-line{
+  fill:none;
+  stroke:#24c391;
+  stroke-width:2;
+  vector-effect:non-scaling-stroke;
+  transition:all .22s linear;
+}
+.signal-timeline .preview-line{
+  opacity:.58;
+  stroke-dasharray:4 5;
+  animation:timeline-waiting 2.4s linear infinite;
+}
+.signal-timeline footer{
+  display:flex;
+  gap:10px;
+  justify-content:flex-end;
+  margin-top:4px;
+}
+.signal-timeline footer span{
+  position:relative;
+  padding-left:12px;
+  color:#73809c;
+  font-size:9px;
+  font-weight:900;
+}
+.signal-timeline footer span::before{
+  content:"";
+  position:absolute;
+  left:0;
+  top:50%;
+  width:7px;
+  height:7px;
+  border-radius:999px;
+  translate:0 -50%;
+  background:#4255ff;
+}
+.signal-timeline footer span+span::before{
+  background:#24c391;
+}
+.emotion-percent-list i b,
+.emotion-breakdown i b{
+  transition:width .24s linear;
+}
+@keyframes monitor-scan{
+  to{transform:translateX(120%)}
+}
+@keyframes emotion-dot-breathe{
+  50%{scale:1.28;box-shadow:0 0 0 8px rgba(66,85,255,.11),0 8px 20px rgba(66,85,255,.3)}
+}
+@keyframes timeline-waiting{
+  to{stroke-dashoffset:-18}
+}

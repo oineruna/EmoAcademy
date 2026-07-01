@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import {
-  BarChart3, BookOpen, Camera, ChevronDown, FileText, Folder,
-  GraduationCap, Home, LogOut, Menu, MessageCircle, Play,
+  BarChart3, BookOpen, ChevronDown, FileText, Folder,
+  Home, LogOut, Menu, MessageCircle, Play,
   Plus, Search, Sparkles, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { EmotionCamera } from "@/components/emotion-camera";
@@ -114,8 +114,47 @@ const emotions = [
   ["Happiness", 18], ["Neutral", 52], ["Sadness", 5], ["Surprise", 10],
 ] as const;
 
-function StudentWorkspace({ displayName, mobileOpen, language, preview }: { displayName: string; mobileOpen: boolean; language: Language; preview: boolean }) {
+function ClosedEmotionMonitor({ language, onOpen }: { language: Language; onOpen: () => void }) {
   const t = ui[language];
+  const text = language === "ja" ? {
+    title: "感情モニター", ready: "READY", session: "学習中の教材", material: "Greetings & Introductions", startOnly: "カメラを開始するとリアルタイムに動きます", current: "今の状態", label: "安定", mood: "気分", energy: "活性", expression: "現在の表情", latest: "最新", source: "入力", trend: "リアルタイム推移", samples: "待機中",
+  } : {
+    title: "Emotion monitor", ready: "READY", session: "Session material", material: "Greetings & Introductions", startOnly: "Start the camera to animate the live monitor", current: "Current state", label: "Steady", mood: "Mood", energy: "Energy", expression: "Current expression", latest: "Latest", source: "Input", trend: "Realtime trend", samples: "Waiting",
+  };
+  return <section className="emotion-dock emotion-dock-preview is-idle" aria-label={text.title}>
+    <header className="emotion-dock-head">
+      <div><span className="live-pip" /> <strong>{text.title}</strong><small>{text.ready}</small></div>
+      <button type="button" onClick={onOpen} aria-label={t.start}>›</button>
+    </header>
+    <div className="session-material compact">
+      <label>{text.session}</label>
+      <select defaultValue="greetings" aria-label={text.session} onChange={() => undefined}>
+        <option value="greetings">{text.material}</option>
+        <option value="conversation">Conversation Practice</option>
+        <option value="review">Unit 1 Review</option>
+      </select>
+    </div>
+    <div className="emotion-grid">
+      <button className="camera-frame camera-frame-preview" type="button" onClick={onOpen}>
+        <div className="camera-placeholder"><span>◉</span><p>{text.startOnly}</p></div>
+        <div className="camera-controls"><span><b className="camera-dot-live" />{t.liveEmotion}</span><em>{t.start}</em></div>
+      </button>
+      <div className="signal-card">
+        <div className="signal-label"><span>{text.current}</span><strong>{text.label}</strong></div>
+        <div className="circumplex" aria-hidden="true"><span className="axis-y">{text.energy}</span><span className="axis-x">{text.mood}</span><i style={{ left: "57%", top: "53%" }} /></div>
+        <div className="signal-values"><span>{text.mood} <b>+0.18</b></span><span>{text.energy} <b>0.46</b></span></div>
+      </div>
+    </div>
+    <div className="emotion-summary-card">
+      <div className="emotion-ring-detail" style={{ background: "conic-gradient(#24c391 0deg, #24c391 188deg, #dbe3ef 188deg, #dbe3ef 360deg)" }}><span>52%</span></div>
+      <div className="emotion-summary-main"><small>{text.expression}</small><strong>Neutral</strong><p>{text.latest}: {text.mood} +0.18 · {text.energy} 0.46</p><em>{text.source}: standby</em></div>
+    </div>
+    <div className="emotion-percent-list">{emotions.map(([name, value]) => <div key={name}><span>{name}</span><i><b style={{ width: `${value}%` }} /></i><strong>{value}%</strong></div>)}</div>
+    <div className="signal-timeline"><div><strong>{text.trend}</strong><span>{text.samples}</span></div><svg viewBox="0 0 100 48" preserveAspectRatio="none"><line x1="0" y1="24" x2="100" y2="24" /><polyline className="valence-line preview-line" points="0,32 20,28 40,30 60,24 80,27 100,23" /><polyline className="arousal-line preview-line" points="0,31 20,25 40,29 60,20 80,26 100,22" /></svg><footer><span>{text.mood}</span><span>{text.energy}</span></footer></div>
+  </section>;
+}
+
+function StudentWorkspace({ displayName, mobileOpen, language, preview }: { displayName: string; mobileOpen: boolean; language: Language; preview: boolean }) {
   const [activeNav, setActiveNav] = useState("home");
   const [materials, setMaterials] = useState<Material[]>(materialsSeed);
   const [progress, setProgress] = useState<ProgressRecord | null>(null);
@@ -133,7 +172,6 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
     ["home", copy.home, <Home key="home" />],
     ["library", copy.library, <Folder key="library" />],
     ["groups", copy.groups, <Users key="groups" />],
-    ["qa", copy.qa, <MessageCircle key="qa" />],
   ] as const;
   const currentMaterial = materials[0] || materialsSeed[0];
   const progressText = progress ? `${progress.percent}% ${language === "ja" ? "完了" : "complete"}` : copy.progress;
@@ -228,7 +266,7 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
     <aside className={`quiz-home-sidebar ${mobileOpen ? "open" : ""}`}>
       <nav className="quiz-primary-nav" aria-label={copy.home}>{navItems.map(([id, label, icon]) => <button key={id} className={activeNav === id ? "active" : ""} type="button" aria-pressed={activeNav === id} onClick={() => setActiveNav(id)}>{icon}<span>{label}</span></button>)}</nav>
       <section className="quiz-side-section"><h2>{copy.groupTitle}</h2><button type="button" className={groups.length ? "created" : ""} onClick={createGroup}><Plus /><span>{groups.length ? groups[0].name : copy.newGroup}</span></button></section>
-      <section className="quiz-side-section"><h2>{copy.start}</h2><button type="button" onClick={() => setActiveNav("library")}><BookOpen /><span>{copy.cards}</span></button><button type="button" onClick={() => setActiveNav("qa")}><GraduationCap /><span>{copy.answers}</span></button></section>
+      <section className="quiz-side-section"><h2>{copy.start}</h2><button type="button" onClick={() => setActiveNav("library")}><BookOpen /><span>{copy.cards}</span></button></section>
     </aside>
 
     <div className="quiz-home-feed">
@@ -244,7 +282,7 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
     </div>
 
     <aside className="quiz-emotion-panel">
-      {cameraOpen ? <EmotionCamera language={language} onClose={() => setCameraOpen(false)} /> : <section className="live-monitor-card"><header><div><i /><span>{copy.monitor.toUpperCase()}</span></div><button type="button" onClick={() => setCameraOpen(true)}><Camera />{copy.openDetail}</button></header><div className="monitor-preview"><Camera /><p>{t.liveEmotion}</p><button type="button" onClick={() => setCameraOpen(true)}>{t.start}</button></div><div className="monitor-reading"><div className="emotion-ring-small">52%</div><div><small>{t.liveEmotion.toUpperCase()}</small><strong>Neutral</strong><span>{t.steadyNote}</span></div></div><div className="emotion-breakdown">{emotions.map(([name, value]) => <div key={name}><span>{name}</span><i><b style={{ width: `${value}%` }} /></i><strong>{value}%</strong></div>)}</div><div className="monitor-latest"><small>{t.latest}</small><strong>{t.steady}</strong><span>Valence +0.18 · Arousal 0.46</span></div></section>}
+      {cameraOpen ? <EmotionCamera language={language} autoStart onClose={() => setCameraOpen(false)} /> : <ClosedEmotionMonitor language={language} onOpen={() => setCameraOpen(true)} />}
     </aside>
   </main>;
 }
