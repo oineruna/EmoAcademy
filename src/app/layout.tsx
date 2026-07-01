@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Noto_Sans_JP, Poppins } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const notoSansJp = Noto_Sans_JP({
@@ -32,7 +33,10 @@ export default function RootLayout({
       lang="ja"
       className={`${notoSansJp.variable} ${poppins.variable}`}
     >
-      <body>{children}</body>
+      <body>
+        <Script src="/env.js" strategy="beforeInteractive" />
+        {children}
+      </body>
     </html>
   );
 }

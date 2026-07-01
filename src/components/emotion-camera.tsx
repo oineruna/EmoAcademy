@@ -1,13 +1,26 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getActiveSupabaseClient } from "@/lib/supabase/client";
 
 type Sample = { valence: number; arousal: number };
-type FaceBox = { x: number; y: number; width: number; height: number; source: "skin-roi" | "center-prior" };
+type FaceBox = { x: number; y: number; width: number; height: number; source: string };
 type EmotionKey = "anger" | "contempt" | "disgust" | "fear" | "happiness" | "neutral" | "sadness" | "surprise";
 type EmotionSummary = { pct: Record<EmotionKey, number>; dominant: EmotionKey; dominantPct: number };
+type RemoteEmotionResponse = {
+  valence?: number;
+  arousal?: number;
+  confidence?: number;
+  dominant_emotion?: EmotionKey;
+  bbox?: FaceBox;
+  frame_width?: number;
+  frame_height?: number;
+  source?: string;
+  model_version?: string;
+};
 
 const emotionKeys: EmotionKey[] = ["anger", "contempt", "disgust", "fear", "happiness", "neutral", "sadness", "surprise"];
+const defaultEmotionApiUrl = "https://emoacademy-emotion-api.hf.space";
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
@@ -113,12 +126,20 @@ function toPercentBox(box: FaceBox, width: number, height: number) {
   };
 }
 
+function getEmotionApiUrl() {
+  const runtimeEnv =
+    typeof window === "undefined"
+      ? undefined
+      : (window as Window & { __EMOACADEMY_ENV__?: Record<string, string | undefined> }).__EMOACADEMY_ENV__;
+  return (process.env.NEXT_PUBLIC_EMOTION_API_URL || runtimeEnv?.NEXT_PUBLIC_EMOTION_API_URL || defaultEmotionApiUrl).replace(/\/$/, "");
+}
+
 export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => void; language?: "ja" | "en" }) {
   const text = language === "ja" ? {
-    stopped: "カメラは停止中", measuring: "学習シグナルを計測中", denied: "カメラを使えません。ブラウザの権限を確認してください。", close: "閉じる", local: "リアルタイム", startOnly: "開始時だけカメラを使用", stop: "停止", start: "計測開始", current: "現在", trace: "集中トレース", samples: "直近18サンプル", title: "感情チェック", active: "活性", positive: "ポジティブ", highEnergy: "高めの活性", positiveFocus: "前向きな集中", needsPause: "休憩サイン", steadyFocus: "安定した集中", liveEmotion: "Live Emotion", latest: "最新", session: "Session Material", material: "Greetings & Introductions",
+    stopped: "カメラは停止中", measuring: "表情を確認中", denied: "カメラを使えません。ブラウザの権限を確認してください。", close: "閉じる", local: "LIVE", startOnly: "開始時だけカメラを使用", stop: "停止", start: "開始", current: "今の状態", trace: "集中の流れ", samples: "直近18サンプル", title: "感情モニター", active: "活性", positive: "前向き", mood: "気分", energy: "活性", highEnergy: "少し高め", positiveFocus: "前向き", needsPause: "休憩サイン", steadyFocus: "安定", liveEmotion: "現在の表情", latest: "最新", session: "学習中の教材", material: "Greetings & Introductions",
     labels: { anger: "怒り", contempt: "軽蔑", disgust: "嫌悪", fear: "不安", happiness: "前向き", neutral: "中立", sadness: "低下", surprise: "驚き" } as Record<EmotionKey, string>,
   } : {
-    stopped: "Camera is off", measuring: "Measuring study signals", denied: "Camera unavailable. Check your browser permission.", close: "Close", local: "Live", startOnly: "Camera starts only when requested", stop: "Stop", start: "Start", current: "Current", trace: "Focus trace", samples: "Latest 18 samples", title: "Emotion check-in", active: "ACTIVE", positive: "POSITIVE", highEnergy: "High energy", positiveFocus: "Positive focus", needsPause: "Needs a pause", steadyFocus: "Steady focus", liveEmotion: "Live Emotion", latest: "Latest", session: "Session Material", material: "Greetings & Introductions",
+    stopped: "Camera is off", measuring: "Checking expression", denied: "Camera unavailable. Check your browser permission.", close: "Close", local: "LIVE", startOnly: "Camera starts only when requested", stop: "Stop", start: "Start", current: "Current state", trace: "Focus flow", samples: "Latest 18 samples", title: "Emotion monitor", active: "ACTIVE", positive: "POSITIVE", mood: "Mood", energy: "Energy", highEnergy: "High energy", positiveFocus: "Positive", needsPause: "Pause sign", steadyFocus: "Steady", liveEmotion: "Current expression", latest: "Latest", session: "Session material", material: "Greetings & Introductions",
     labels: { anger: "Anger", contempt: "Contempt", disgust: "Disgust", fear: "Fear", happiness: "Happiness", neutral: "Neutral", sadness: "Sadness", surprise: "Surprise" } as Record<EmotionKey, string>,
   };
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -126,6 +147,9 @@ export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => voi
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const previousBrightness = useRef(0.5);
+  const lastRemoteAt = useRef(0);
+  const remoteBusy = useRef(false);
+  const lastSaveAt = useRef(0);
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState(text.stopped);
   const [sample, setSample] = useState<Sample>({ valence: 0.18, arousal: 0.46 });
@@ -182,6 +206,60 @@ export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => voi
     setFaceBox(box);
     setSample(next);
     setHistory((items) => [...items.slice(-18), next]);
+    void saveEmotionSample(next, summarizeEmotion(next).dominant, undefined, "browser", undefined);
+    // eslint-disable-next-line react-hooks/purity
+    const now = Date.now();
+    if (now - lastRemoteAt.current > 2500) {
+      lastRemoteAt.current = now;
+      void requestRemoteEmotion(canvas);
+    }
+  }
+
+  async function canvasToBlob(canvas: HTMLCanvasElement) {
+    return new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+  }
+
+  async function requestRemoteEmotion(canvas: HTMLCanvasElement) {
+    if (remoteBusy.current) return;
+    remoteBusy.current = true;
+    try {
+      const blob = await canvasToBlob(canvas);
+      if (!blob) return;
+      const body = new FormData();
+      body.append("file", blob, "frame.jpg");
+      const response = await fetch(`${getEmotionApiUrl()}/predict`, { method: "POST", body });
+      if (!response.ok) return;
+      const data = (await response.json()) as RemoteEmotionResponse;
+      if (typeof data.valence !== "number" || typeof data.arousal !== "number") return;
+      const next = { valence: clamp(data.valence, -1, 1), arousal: clamp(data.arousal, 0, 1) };
+      const dominant = data.dominant_emotion && emotionKeys.includes(data.dominant_emotion) ? data.dominant_emotion : summarizeEmotion(next).dominant;
+      setSample(next);
+      setHistory((items) => [...items.slice(-18), next]);
+      if (data.bbox) setFaceBox(data.bbox);
+      await saveEmotionSample(next, dominant, data.confidence, data.source || "emotion-api", data.model_version);
+    } catch {
+      // Keep the local monitor running if the model API sleeps or is unavailable.
+    } finally {
+      remoteBusy.current = false;
+    }
+  }
+
+  async function saveEmotionSample(sampleToSave: Sample, dominant: EmotionKey, confidence?: number, source?: string, modelVersion?: string) {
+    const now = Date.now();
+    if (now - lastSaveAt.current < 5000) return;
+    lastSaveAt.current = now;
+    const result = await getActiveSupabaseClient();
+    if (!result) return;
+    await result.client.from("emotion_samples").insert({
+      user_id: result.session.user.id,
+      valence: sampleToSave.valence,
+      arousal: sampleToSave.arousal,
+      dominant_emotion: dominant,
+      confidence,
+      source: source || "browser",
+      model_version: modelVersion,
+      captured_at: new Date().toISOString(),
+    });
   }
 
   const label = sample.arousal > 0.72 ? text.highEnergy : sample.valence > 0.22 ? text.positiveFocus : sample.valence < -0.18 ? text.needsPause : text.steadyFocus;
@@ -218,11 +296,11 @@ export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => voi
         </div>
         <div className="signal-card">
           <div className="signal-label"><span>{text.current}</span><strong>{label}</strong></div>
-          <div className="circumplex" aria-label={`Valence ${sample.valence.toFixed(2)}, Arousal ${sample.arousal.toFixed(2)}`}>
+          <div className="circumplex" aria-label={`${text.mood} ${sample.valence.toFixed(2)}, ${text.energy} ${sample.arousal.toFixed(2)}`}>
             <span className="axis-y">{text.active}</span><span className="axis-x">{text.positive}</span>
             <i style={{ left: `${dotX}%`, top: `${dotY}%` }} />
           </div>
-          <div className="signal-values"><span>Valence <b>{sample.valence.toFixed(2)}</b></span><span>Arousal <b>{sample.arousal.toFixed(2)}</b></span></div>
+          <div className="signal-values"><span>{text.mood} <b>{sample.valence.toFixed(2)}</b></span><span>{text.energy} <b>{sample.arousal.toFixed(2)}</b></span></div>
         </div>
       </div>
       <div className="emotion-summary-card">
@@ -232,7 +310,7 @@ export function EmotionCamera({ onClose, language = "ja" }: { onClose: () => voi
         <div className="emotion-summary-main">
           <small>{text.liveEmotion}</small>
           <strong>{text.labels[summary.dominant]}</strong>
-          <p>{text.latest}: Valence {sample.valence.toFixed(2)} · Arousal {sample.arousal.toFixed(2)}</p>
+          <p>{text.latest}: {text.mood} {sample.valence.toFixed(2)} · {text.energy} {sample.arousal.toFixed(2)}</p>
         </div>
       </div>
       <div className="emotion-percent-list">

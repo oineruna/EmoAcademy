@@ -1,6 +1,6 @@
 # EmoAcademy Specification
 
-Last updated: 2026-06-23  
+Last updated: 2026-07-01  
 Repository: `EmoAcademy`  
 Production URL: <https://emo-academy.vercel.app>
 
@@ -276,6 +276,57 @@ Supabase Dashboard
 → profiles
 ```
 
+#### `public.learning_materials`
+
+Stores teacher-created learning materials. Students can read published materials, and teachers can add or update materials.
+
+Main columns:
+
+| Column | Meaning |
+|---|---|
+| `id` | Material ID |
+| `created_by` | Teacher user ID |
+| `title` | Material title |
+| `subject` | Subject |
+| `material_type` | `PDF` / `LINK` / `CARD` |
+| `duration_minutes` | Estimated duration |
+| `external_url` | External URL |
+| `instruction` | Study instruction |
+| `is_published` | Whether students can see it |
+
+#### `public.study_progress`
+
+Stores per-student progress. Students can view their own progress, and teachers can review class activity.
+
+Main columns:
+
+| Column | Meaning |
+|---|---|
+| `user_id` | Student user ID |
+| `material_id` | Target material ID |
+| `status` | `not_started` / `in_progress` / `completed` |
+| `percent` | Progress percentage |
+| `last_activity_title` | Last opened activity |
+| `last_studied_at` | Last study timestamp |
+
+#### `public.study_groups` / `public.study_group_members`
+
+Stores study groups and membership. At the current stage, students can create their own groups.
+
+#### `public.qa_threads`
+
+Stores student questions and teacher answers.
+
+Main columns:
+
+| Column | Meaning |
+|---|---|
+| `user_id` | Student who asked |
+| `material_id` | Related material |
+| `question` | Student question |
+| `teacher_answer` | Teacher answer |
+| `status` | `open` / `answered` / `closed` |
+
 ### 8.2 SQL for viewing users and roles
 
 Run this in the Supabase SQL Editor to view emails and roles together.
@@ -330,11 +381,28 @@ If admin roles are added later, update both the database check constraint and th
 
 A **database trigger** is an automatic database action. In this app, it creates a profile row whenever a new Auth user is created.
 
-## 9. Future database design
+## 9. Learning database design
 
-Other than profiles, learning data is not fully persisted yet. For production use, the following tables should be added.
+Added SQL:
 
-### 9.1 `learning_sets`
+```text
+supabase/migrations/202607010001_learning_core.sql
+```
+
+Run this SQL in the Supabase SQL Editor to enable storage for materials, progress, study groups, and Q&A threads.
+
+### 9.1 Currently persisted data
+
+| Data | Table | App usage |
+|---|---|---|
+| Materials | `learning_materials` | Teachers add materials; students view them |
+| Study progress | `study_progress` | Jump back in and teacher progress review |
+| Study groups | `study_groups` / `study_group_members` | Group creation and group list |
+| Questions and teacher answers | `qa_threads` | Students ask questions; teachers answer |
+
+### 9.2 Tables to split further later
+
+#### `learning_sets`
 
 Stores study sets.
 
@@ -347,7 +415,7 @@ Stores study sets.
 | `visibility` | private / class / public |
 | `created_at` | Created timestamp |
 
-### 9.2 `learning_items`
+#### `learning_items`
 
 Stores flashcards or questions.
 
@@ -359,7 +427,7 @@ Stores flashcards or questions.
 | `back` | Back side / answer |
 | `order_index` | Display order |
 
-### 9.3 `learning_progress`
+#### `learning_progress`
 
 Stores per-student progress.
 
@@ -373,7 +441,7 @@ Stores per-student progress.
 | `last_studied_at` | Last study timestamp |
 | `next_review_at` | Next review timestamp |
 
-### 9.4 `classes`
+#### `classes`
 
 Stores teacher-created classes.
 
@@ -384,7 +452,7 @@ Stores teacher-created classes.
 | `name` | Class name |
 | `invite_code` | Invitation code |
 
-### 9.5 `class_members`
+#### `class_members`
 
 Stores class membership.
 
@@ -394,7 +462,7 @@ Stores class membership.
 | `user_id` | User ID |
 | `role` | Membership role, such as student or teacher |
 
-### 9.6 `emotion_sessions`
+#### `emotion_sessions`
 
 Stores emotion monitor session summaries if saving is enabled in the future.
 
@@ -646,8 +714,6 @@ Not yet implemented:
 
 - Persistent study set storage
 - Persistent flashcard storage
-- Per-student progress storage
-- Saving teacher-created materials to Supabase
 - Saving PDFs to Supabase Storage
 - Class creation
 - Invitation codes
@@ -663,12 +729,12 @@ Not yet implemented:
 
 ## 18. Recommended implementation order
 
-1. Add `learning_sets` and `learning_items`.
-2. Persist student `learning_progress`.
-3. Add teacher `classes` and `class_members`.
-4. Store material PDFs in Supabase Storage.
-5. Build class-level and student-level progress views for teachers.
-6. Further stabilize role assignment for Google login.
+1. Run `202607010001_learning_core.sql` in the Supabase SQL Editor.
+2. Log in as a student and test Jump back in, question submission, and group creation.
+3. Log in as a teacher and test material creation, question answering, and progress review.
+4. Add `learning_sets` and `learning_items` so flashcards are separated from materials.
+5. Add teacher `classes` and `class_members`, including invitation codes.
+6. Store material PDFs in Supabase Storage.
 7. Configure Custom SMTP with Resend or another provider for production email confirmation.
 8. Add consent and deletion controls before saving emotion monitor summaries.
 

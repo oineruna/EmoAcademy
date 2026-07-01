@@ -1,6 +1,6 @@
 # EmoAcademy 仕様書
 
-最終更新: 2026-06-23  
+最終更新: 2026-07-01  
 対象リポジトリ: `EmoAcademy`  
 公開予定URL: <https://emo-academy.vercel.app>
 
@@ -278,6 +278,57 @@ Supabase Dashboard
 → profiles
 ```
 
+#### `public.learning_materials`
+
+教師が作成する教材を保存します。学生は公開済み教材を読み、教師は教材を追加・編集できます。
+
+主なカラム:
+
+| カラム             | 内容                            |
+| ------------------ | ------------------------------- |
+| `id`               | 教材ID                          |
+| `created_by`       | 作成した教師のユーザーID        |
+| `title`            | 教材名                          |
+| `subject`          | 科目                            |
+| `material_type`    | `PDF` / `LINK` / `CARD`         |
+| `duration_minutes` | 目安時間                        |
+| `external_url`     | 外部リンク                      |
+| `instruction`      | 学習指示                        |
+| `is_published`     | 学生に表示するかどうか          |
+
+#### `public.study_progress`
+
+学生ごとの学習進捗を保存します。学生本人と教師が確認できます。
+
+主なカラム:
+
+| カラム                | 内容                                      |
+| --------------------- | ----------------------------------------- |
+| `user_id`             | 学生ユーザーID                            |
+| `material_id`         | 対象教材ID                                |
+| `status`              | `not_started` / `in_progress` / `completed` |
+| `percent`             | 進捗率                                    |
+| `last_activity_title` | 最後に開いた学習内容                      |
+| `last_studied_at`     | 最終学習日時                              |
+
+#### `public.study_groups` / `public.study_group_members`
+
+学習グループとメンバーを保存します。現時点では、学生が自分のグループを作成できます。
+
+#### `public.qa_threads`
+
+学生の質問と教師の回答を保存します。
+
+主なカラム:
+
+| カラム           | 内容                              |
+| ---------------- | --------------------------------- |
+| `user_id`        | 質問した学生                      |
+| `material_id`    | 関連教材                          |
+| `question`       | 学生の質問                        |
+| `teacher_answer` | 教師の回答                        |
+| `status`         | `open` / `answered` / `closed`    |
+
 ### 8.2 ユーザーとロールを見るSQL
 
 Supabase SQL Editorで以下を実行すると、メールアドレスとロールをまとめて確認できます。
@@ -332,11 +383,28 @@ Googleログインの場合は、OAuthのリダイレクト後に `auth/callback
 
 **DBトリガー**とは、データベース上で特定の出来事が起きた時に自動実行される処理です。ここでは「Authユーザーが作成されたら、プロフィールも自動作成する」ために使っています。
 
-## 9. 今後必要なデータベース設計
+## 9. 学習データベース設計
 
-現在、プロフィール以外の学習データは本格保存されていません。学習サイトとして運用するなら、以下のテーブルを追加します。
+今回追加したSQL:
 
-### 9.1 `learning_sets`
+```text
+supabase/migrations/202607010001_learning_core.sql
+```
+
+このSQLをSupabase SQL Editorで実行すると、教材、進捗、学習グループ、質問回答を保存できるようになります。
+
+### 9.1 現在実装済みの保存対象
+
+| 保存対象           | テーブル                         | アプリ内の用途                         |
+| ------------------ | -------------------------------- | -------------------------------------- |
+| 教材               | `learning_materials`             | 教師が教材を追加、学生が教材を見る     |
+| 学習進捗           | `study_progress`                 | 続きから始める、教師の進捗確認         |
+| 学習グループ       | `study_groups` / `study_group_members` | 学習グループの作成と一覧表示           |
+| 質問・教師回答     | `qa_threads`                     | 学生が質問し、教師が回答する           |
+
+### 9.2 今後さらに分けるとよいテーブル
+
+#### `learning_sets`
 
 学習セットを保存するテーブル。
 
@@ -349,7 +417,7 @@ Googleログインの場合は、OAuthのリダイレクト後に `auth/callback
 | `visibility`  | private / class / public |
 | `created_at`  | 作成日時                 |
 
-### 9.2 `learning_items`
+#### `learning_items`
 
 単語カードや問題を保存するテーブル。
 
@@ -361,7 +429,7 @@ Googleログインの場合は、OAuthのリダイレクト後に `auth/callback
 | `back`        | 裏面、答え         |
 | `order_index` | 表示順             |
 
-### 9.3 `learning_progress`
+#### `learning_progress`
 
 学生ごとの進捗を保存するテーブル。
 
@@ -375,7 +443,7 @@ Googleログインの場合は、OAuthのリダイレクト後に `auth/callback
 | `last_studied_at` | 最終学習日時   |
 | `next_review_at`  | 次回復習予定   |
 
-### 9.4 `classes`
+#### `classes`
 
 教師が作るクラスを保存するテーブル。
 
@@ -386,7 +454,7 @@ Googleログインの場合は、OAuthのリダイレクト後に `auth/callback
 | `name`        | クラス名       |
 | `invite_code` | 招待コード     |
 
-### 9.5 `class_members`
+#### `class_members`
 
 どの学生がどのクラスに所属しているかを保存するテーブル。
 
@@ -396,7 +464,7 @@ Googleログインの場合は、OAuthのリダイレクト後に `auth/callback
 | `user_id`  | 学生ユーザーID    |
 | `role`     | student / teacher |
 
-### 9.6 `emotion_sessions`
+#### `emotion_sessions`
 
 感情モニターの利用ログを保存する場合のテーブル。
 
@@ -646,8 +714,6 @@ supabase/functions/delete-account/index.ts
 
 - 学習セットの永続保存
 - 単語カードの永続保存
-- 学生ごとの進捗保存
-- 教師が作成した教材のSupabase保存
 - 教材PDFのSupabase Storage保存
 - クラス作成
 - 招待コード
@@ -663,12 +729,12 @@ supabase/functions/delete-account/index.ts
 
 ## 18. 次に実装するとよい順番
 
-1. `learning_sets` と `learning_items` を作る。
-2. 学生の `learning_progress` を保存する。
-3. 教師用の `classes` と `class_members` を作る。
-4. 教材PDFをSupabase Storageへ保存する。
-5. 教師がクラス別/学生別に進捗を見る画面を作る。
-6. Googleログイン時のロール設定をさらに安定化する。
+1. Supabase SQL Editorで `202607010001_learning_core.sql` を実行する。
+2. 学生でログインし、続きから始める・質問送信・グループ作成を確認する。
+3. 教師でログインし、教材追加・質問回答・進捗一覧を確認する。
+4. `learning_sets` と `learning_items` を作り、単語カードを教材から独立させる。
+5. 教師用の `classes` と `class_members` を作り、招待コードを追加する。
+6. 教材PDFをSupabase Storageへ保存する。
 7. ResendなどでCustom SMTPを設定し、確認メールを本番対応にする。
 8. 感情モニターは保存前に同意UIと削除UIを作る。
 

@@ -2,23 +2,45 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 type StorageMode = "local" | "session";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const clients: Partial<Record<StorageMode, SupabaseClient>> = {};
 const storageKeys: Record<StorageMode, string> = {
   local: "emo-academy-local-auth",
   session: "emo-academy-session-auth",
 };
 
+type HuggingFaceWindow = Window & {
+  huggingface?: {
+    variables?: Record<string, string | undefined>;
+  };
+  __EMOACADEMY_ENV__?: Record<string, string | undefined>;
+};
+
+function getSupabaseConfig() {
+  const variables =
+    typeof window === "undefined"
+      ? undefined
+      : {
+          ...(window as HuggingFaceWindow).huggingface?.variables,
+          ...(window as HuggingFaceWindow).__EMOACADEMY_ENV__,
+        };
+
+  return {
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL || variables?.NEXT_PUBLIC_SUPABASE_URL,
+    key: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || variables?.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+  };
+}
+
 export function isSupabaseConfigured() {
-  return Boolean(supabaseUrl?.startsWith("https://") && supabaseKey);
+  const { url, key } = getSupabaseConfig();
+  return Boolean(url?.startsWith("https://") && key);
 }
 
 export function getSupabaseBrowserClient(mode: StorageMode = "local") {
   if (!isSupabaseConfigured() || typeof window === "undefined") return null;
   if (clients[mode]) return clients[mode]!;
+  const { url, key } = getSupabaseConfig();
 
-  clients[mode] = createClient(supabaseUrl!, supabaseKey!, {
+  clients[mode] = createClient(url!, key!, {
     auth: {
       flowType: "pkce",
       persistSession: true,
