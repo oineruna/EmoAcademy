@@ -164,9 +164,9 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
   const [cameraOpen, setCameraOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const copy = language === "ja" ? {
-    home: "ホーム", library: "ライブラリー", groups: "学習グループ", qa: "質問・先生の回答", groupTitle: "学習グループ", newGroup: "新しいグループ", start: "ここから始めましょう", cards: "単語カード", answers: "質問・先生の回答", jump: "続きから始める", recent: "最近", personalize: "あなた向けの学習", exact: "必要なものを学習", continue: "続ける", create: "単語カードを作成", update: "学習目標を更新する", progress: "42% 完了", monitor: "感情モニター", resumed: "前回の続きから開きます。", openDetail: "詳細を開く", send: "送信", askPlaceholder: "先生に質問する", saved: "保存しました。", offline: "まだSupabaseテーブルが未作成なので画面内だけで反映しています。",
+    home: "ホーム", library: "ライブラリー", groups: "学習グループ", qa: "質問・回答", groupTitle: "学習グループ", newGroup: "新しいグループ", start: "ここから始めましょう", cards: "単語カード", answers: "質問・回答", jump: "続きから始める", recent: "最近", personalize: "あなた向けの学習", exact: "必要なものを学習", continue: "続ける", create: "単語カードを作成", update: "学習目標を更新する", progress: "42% 完了", monitor: "感情モニター", resumed: "前回の続きから開きます。", openDetail: "詳細を開く", send: "送信", askPlaceholder: "先生に質問する", saved: "保存しました。", offline: "まだSupabaseテーブルが未作成なので画面内だけで反映しています。",
   } : {
-    home: "Home", library: "Library", groups: "Study groups", qa: "Q&A history", groupTitle: "Study groups", newGroup: "New group", start: "Start here", cards: "Flashcards", answers: "Questions & teacher answers", jump: "Jump back in", recent: "Recents", personalize: "Personalize your content", exact: "Study exactly what you need", continue: "Continue", create: "Create flashcards", update: "Update your learning goal", progress: "42% complete", monitor: "Emotion monitor", resumed: "Opening your last study activity.", openDetail: "Open detail", send: "Send", askPlaceholder: "Ask your teacher", saved: "Saved.", offline: "Supabase tables are not created yet, so this changed only on the screen.",
+    home: "Home", library: "Library", groups: "Study groups", qa: "Q&A", groupTitle: "Study groups", newGroup: "New group", start: "Start here", cards: "Flashcards", answers: "Questions & answers", jump: "Jump back in", recent: "Recents", personalize: "Personalize your content", exact: "Study exactly what you need", continue: "Continue", create: "Create flashcards", update: "Update your learning goal", progress: "42% complete", monitor: "Emotion monitor", resumed: "Opening your last study activity.", openDetail: "Open detail", send: "Send", askPlaceholder: "Ask your teacher", saved: "Saved.", offline: "Supabase tables are not created yet, so this changed only on the screen.",
   };
   const navItems = [
     ["home", copy.home, <Home key="home" />],
@@ -266,7 +266,7 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
     <aside className={`quiz-home-sidebar ${mobileOpen ? "open" : ""}`}>
       <nav className="quiz-primary-nav" aria-label={copy.home}>{navItems.map(([id, label, icon]) => <button key={id} className={activeNav === id ? "active" : ""} type="button" aria-pressed={activeNav === id} onClick={() => setActiveNav(id)}>{icon}<span>{label}</span></button>)}</nav>
       <section className="quiz-side-section"><h2>{copy.groupTitle}</h2><button type="button" className={groups.length ? "created" : ""} onClick={createGroup}><Plus /><span>{groups.length ? groups[0].name : copy.newGroup}</span></button></section>
-      <section className="quiz-side-section"><h2>{copy.start}</h2><button type="button" onClick={() => setActiveNav("library")}><BookOpen /><span>{copy.cards}</span></button></section>
+      <section className="quiz-side-section"><h2>{copy.start}</h2><button type="button" onClick={() => setActiveNav("library")}><BookOpen /><span>{copy.cards}</span></button><button type="button" onClick={() => setActiveNav("qa")}><MessageCircle /><span>{copy.answers}</span></button></section>
     </aside>
 
     <div className="quiz-home-feed">

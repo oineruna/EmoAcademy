@@ -136,6 +136,7 @@ The current student dashboard is Quizlet-inspired.
   - Library
   - Study groups
   - Flashcards
+  - Q&A shortcut
 - Center feed
   - Jump back in
   - Recents
@@ -146,7 +147,7 @@ The current student dashboard is Quizlet-inspired.
   - Shared card structure for idle and LIVE states
   - Mood/energy, emotion percentages, and realtime timeline
 
-Current progress values and study materials are demo data. Persistent learning progress requires the future progress tables described below.
+Current progress values and study materials are demo data. The Q&A screen is designed to connect to `qa_threads`. Persistent learning progress and Q&A history require the tables described below.
 
 ### 6.3 Teacher dashboard
 

@@ -34,6 +34,11 @@ export default function DashboardPage() {
       if (!active) return;
       if (data) setProfile(data);
       setLoading(false);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      console.warn("Failed to prepare dashboard", error);
+      setMessage("ローカル確認モードで表示しています。");
+      setLoading(false);
     });
     return () => { active = false; };
   }, [router]);
