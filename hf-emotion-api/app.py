@@ -28,7 +28,7 @@ except Exception:  # pragma: no cover
     torch = None
 
 
-APP_VERSION = "emotion-api-2026-07-01"
+APP_VERSION = "emotion-api-2026-07-09"
 MODEL_DIR = Path("models")
 MODEL_PATH = os.getenv("MODEL_PATH") or os.getenv("ONNX_MODEL_PATH")
 EMOTION_KEYS = ["anger", "contempt", "disgust", "fear", "happiness", "neutral", "sadness", "surprise"]
@@ -48,6 +48,28 @@ _model_error: str | None = None
 
 def clamp(value: float, low: float, high: float) -> float:
     return max(low, min(high, value))
+
+
+def softmax(values: np.ndarray) -> np.ndarray:
+    shifted = values - np.max(values)
+    exp_values = np.exp(shifted)
+    return exp_values / max(float(exp_values.sum()), 1e-8)
+
+
+def square_face_bbox(bbox: dict[str, Any], frame_width: int, frame_height: int, margin: float = 0.14):
+    center_x = float(bbox["x"]) + float(bbox["width"]) / 2
+    center_y = float(bbox["y"]) + float(bbox["height"]) / 2
+    side = max(float(bbox["width"]), float(bbox["height"])) * (1 + margin * 2)
+    side = min(side, float(frame_width), float(frame_height))
+    x = clamp(center_x - side / 2, 0, frame_width - side)
+    y = clamp(center_y - side / 2, 0, frame_height - side)
+    return {
+        "x": int(round(x)),
+        "y": int(round(y)),
+        "width": int(round(side)),
+        "height": int(round(side)),
+        "source": bbox["source"],
+    }
 
 
 def find_model_path() -> str | None:
@@ -161,6 +183,79 @@ def heuristic_predict(face_img: np.ndarray):
     return valence, arousal, confidence, "heuristic"
 
 
+def evaluate_capture_quality(
+    frame_img: np.ndarray,
+    face_img: np.ndarray,
+    bbox: dict[str, Any],
+):
+    face_gray = (
+        cv2.cvtColor(face_img, cv2.COLOR_RGB2GRAY)
+        if cv2 is not None
+        else np.mean(face_img, axis=2).astype(np.uint8)
+    )
+    brightness = float(face_gray.mean()) / 255.0
+    contrast = float(face_gray.std()) / 255.0
+    frame_area = max(int(frame_img.shape[0] * frame_img.shape[1]), 1)
+    face_ratio = float(bbox["width"] * bbox["height"]) / frame_area
+    sharpness = (
+        float(cv2.Laplacian(face_gray, cv2.CV_64F).var())
+        if cv2 is not None
+        else None
+    )
+    warnings = []
+    if face_ratio < 0.08:
+        warnings.append("face_too_small")
+    if brightness < 0.22:
+        warnings.append("low_light")
+    elif brightness > 0.88:
+        warnings.append("overexposed")
+    if contrast < 0.10:
+        warnings.append("low_contrast")
+    if sharpness is not None and sharpness < 35:
+        warnings.append("blurred")
+    return {
+        "score": round(clamp(1.0 - len(warnings) * 0.18, 0.1, 1.0), 2),
+        "brightness": round(brightness, 3),
+        "contrast": round(contrast, 3),
+        "face_ratio": round(face_ratio, 3),
+        "sharpness": round(sharpness, 1) if sharpness is not None else None,
+        "warnings": warnings,
+    }
+
+
+def interpret_model_output(flat: np.ndarray):
+    if flat.size < 2:
+        raise RuntimeError("Model output must contain at least [valence, arousal]")
+    if flat.size >= 10:
+        valence = float(clamp(float(flat[-2]), -1, 1))
+        raw_arousal = float(flat[-1])
+        probabilities = softmax(flat[:8])
+        emotion_pct = {
+            key: round(float(probabilities[index]) * 100)
+            for index, key in enumerate(EMOTION_KEYS)
+        }
+        dominant_index = int(np.argmax(probabilities))
+        dominant = EMOTION_KEYS[dominant_index]
+        confidence = float(probabilities[dominant_index])
+    else:
+        valence = float(clamp(float(flat[0]), -1, 1))
+        raw_arousal = float(flat[1])
+        emotion = summarize_emotion(valence, clamp((raw_arousal + 1.0) / 2.0, 0, 1))
+        emotion_pct = emotion["pct"]
+        dominant = emotion["dominant"]
+        confidence = float(emotion["dominant_pct"]) / 100
+    arousal = clamp((raw_arousal + 1.0) / 2.0, 0, 1)
+    return {
+        "valence": valence,
+        "arousal": arousal,
+        "confidence": confidence,
+        "source": "enet_b0_8_va_mtl",
+        "dominant": dominant,
+        "dominant_pct": emotion_pct[dominant],
+        "emotion_pct": emotion_pct,
+    }
+
+
 def model_predict(face_img: np.ndarray, model: dict[str, Any]):
     face = Image.fromarray(face_img).resize((224, 224))
     arr = np.array(face).astype(np.float32) / 255.0
@@ -181,17 +276,7 @@ def model_predict(face_img: np.ndarray, model: dict[str, Any]):
             out = out.detach().cpu().numpy()
     else:
         raise RuntimeError(f"Unsupported model mode: {model['mode']}")
-    flat = np.array(out).reshape(-1)
-    if flat.size < 2:
-        raise RuntimeError("Model output must contain at least [valence, arousal]")
-    if flat.size >= 10:
-        valence = float(clamp(float(flat[-2]), -1, 1))
-        raw_arousal = float(flat[-1])
-    else:
-        valence = float(clamp(float(flat[0]), -1, 1))
-        raw_arousal = float(flat[1])
-    arousal = clamp((raw_arousal + 1.0) / 2.0, 0, 1)
-    return valence, arousal, 0.9, model["mode"]
+    return interpret_model_output(np.array(out).reshape(-1))
 
 
 @app.get("/")
@@ -214,6 +299,7 @@ def health():
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
+    started_at = time.perf_counter()
     data = await file.read()
     try:
         img = Image.open(BytesIO(data)).convert("RGB")
@@ -225,6 +311,7 @@ async def predict(file: UploadFile = File(...)):
     bbox = detect_face_bbox(img_np)
     if bbox is None:
         raise HTTPException(status_code=422, detail="No face detected")
+    bbox = square_face_bbox(bbox, frame_width, frame_height)
 
     x1 = max(0, int(bbox["x"]))
     y1 = max(0, int(bbox["y"]))
@@ -233,26 +320,37 @@ async def predict(file: UploadFile = File(...)):
     face_img = img_np[y1:y2, x1:x2]
     if face_img.size == 0:
         raise HTTPException(status_code=422, detail="Invalid face region")
+    quality = evaluate_capture_quality(img_np, face_img, bbox)
 
     model = get_model()
     if model is not None:
-        valence, arousal, confidence, source = model_predict(face_img, model)
+        prediction = model_predict(face_img, model)
     else:
         valence, arousal, confidence, source = heuristic_predict(face_img)
-
-    emotion = summarize_emotion(valence, arousal)
+        emotion = summarize_emotion(valence, arousal)
+        prediction = {
+            "valence": valence,
+            "arousal": arousal,
+            "confidence": confidence,
+            "source": source,
+            "dominant": emotion["dominant"],
+            "dominant_pct": emotion["dominant_pct"],
+            "emotion_pct": emotion["pct"],
+        }
     return {
         "timestamp": time.time(),
-        "valence": valence,
-        "arousal": arousal,
-        "confidence": confidence,
-        "dominant_emotion": emotion["dominant"],
-        "dominant_pct": emotion["dominant_pct"],
-        "emotion_pct": emotion["pct"],
+        "valence": prediction["valence"],
+        "arousal": prediction["arousal"],
+        "confidence": prediction["confidence"],
+        "dominant_emotion": prediction["dominant"],
+        "dominant_pct": prediction["dominant_pct"],
+        "emotion_pct": prediction["emotion_pct"],
         "bbox": bbox,
         "frame_width": int(frame_width),
         "frame_height": int(frame_height),
-        "source": source,
+        "source": prediction["source"],
         "model_version": APP_VERSION,
         "model_loaded": model is not None,
+        "quality": quality,
+        "inference_ms": round((time.perf_counter() - started_at) * 1000, 1),
     }

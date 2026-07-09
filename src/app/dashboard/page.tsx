@@ -10,6 +10,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ display_name: string | null; role: string | null } | null>(null);
+  const [previewRole, setPreviewRole] = useState<"student" | "teacher">("student");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
 
@@ -22,6 +23,8 @@ export default function DashboardPage() {
           router.replace("/");
           return;
         }
+        const roleParam = new URLSearchParams(window.location.search).get("role");
+        if (roleParam === "teacher") setPreviewRole("teacher");
         setLoading(false);
         return;
       }
@@ -71,7 +74,7 @@ export default function DashboardPage() {
     <LearningDashboard
       displayName={String(profile?.display_name || user?.user_metadata?.display_name || user?.user_metadata?.full_name || "Alex")}
       email={user?.email || "preview@emoacademy.local"}
-      role={String(profile?.role || user?.user_metadata?.role || "student")}
+      role={String(profile?.role || user?.user_metadata?.role || previewRole)}
       preview={!user}
       message={message}
       onLogout={logout}
