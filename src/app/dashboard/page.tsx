@@ -18,12 +18,20 @@ export default function DashboardPage() {
     let active = true;
     getActiveSupabaseClient().then(async (result) => {
       if (!active) return;
+      const params = new URLSearchParams(window.location.search);
+      const previewParam = params.get("preview");
+      const isLocalPreview = ["127.0.0.1", "localhost"].includes(window.location.hostname) && (previewParam === "student" || previewParam === "teacher");
+      if (isLocalPreview) {
+        setPreviewRole(previewParam);
+        setLoading(false);
+        return;
+      }
       if (!result) {
         if (isSupabaseConfigured()) {
           router.replace("/");
           return;
         }
-        const roleParam = new URLSearchParams(window.location.search).get("role");
+        const roleParam = params.get("role");
         if (roleParam === "teacher") setPreviewRole("teacher");
         setLoading(false);
         return;

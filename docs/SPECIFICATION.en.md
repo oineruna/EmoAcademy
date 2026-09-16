@@ -85,7 +85,6 @@ EmoAcademy
 │  │  ├─ auth-screen.tsx           Authentication screen
 │  │  ├─ learning-dashboard.tsx    Student/teacher dashboard
 │  │  ├─ emotion-camera.tsx        Emotion monitor
-│  │  └─ learning-session.tsx      Candidate learning-session component
 │  └─ lib/supabase/client.ts       Supabase client setup
 ├─ supabase
 │  ├─ migrations                   Database migration SQL
@@ -136,18 +135,23 @@ The current student dashboard is Quizlet-inspired.
   - Library
   - Study groups
   - Flashcards
-  - Q&A shortcut
+  - Material detail
+  - Submission
+  - Q&A
+  - Emotion session
 - Center feed
   - Jump back in
-  - Recents
-  - Personalized learning
-  - Create flashcards card
+  - Material detail
+  - Answer submission
+  - Questions and teacher answers
+  - Learning-load support
+  - Teacher support suggestions
 - Right side
   - Emotion monitor
   - Shared card structure for idle and LIVE states
   - Mood/energy, emotion percentages, and realtime timeline
 
-Current progress values and study materials are demo data. The Q&A screen is designed to connect to `qa_threads`. Persistent learning progress and Q&A history require the tables described below.
+When Supabase is connected, materials, progress, questions, submissions, emotion logs, and support suggestions are loaded from and saved to their corresponding tables. Local preview mode uses demo data.
 
 ### 6.3 Teacher dashboard
 
@@ -155,15 +159,25 @@ File: `src/components/learning-dashboard.tsx`
 
 Main features:
 
+- Quizlet-inspired left sidebar
+  - Overview
+  - Materials
+  - Q&A
+  - Submissions
+  - Emotion log
+  - Student reports
 - Material creation form
 - PDF or web-link material type
 - Title, subject, duration, URL, and study instruction fields
 - Assignment action by student ID
 - Material list
 - Student progress list
-- Recent comments
+- Teacher answers for student questions
+- Feedback for submitted answers
+- Support suggestions based on emotion logs
+- Per-student report cards
 
-The teacher screen is currently a UI demo. Materials entered in the UI are not yet persisted to Supabase.
+When Supabase is connected, materials, teacher answers, submission feedback, and support suggestions are saved to the corresponding tables. Local preview mode keeps the data in the screen only.
 
 ### 6.4 Emotion monitor
 

@@ -11,7 +11,7 @@ Supabase認証と研究用の任意カメラ補助機能を備えた、学生・
 
 ```powershell
 npm install
-npm run dev
+npm run dev:local
 ```
 
 `.env.local`に以下を設定します。
@@ -19,6 +19,14 @@ npm run dev
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
+```
+
+感情推論APIを使わずローカルだけで確認する場合、`NEXT_PUBLIC_EMOTION_API_URL` は設定しません。この状態では外部サーバーへ送信せず、ブラウザ内の簡易推定だけで感情モニターが動きます。
+
+HF上の推論APIを使う場合だけ、`.env.local` またはVercel/Hugging Faceの環境変数に以下を追加します。
+
+```env
+NEXT_PUBLIC_EMOTION_API_URL=https://your-emotion-api.hf.space
 ```
 
 ## 確認

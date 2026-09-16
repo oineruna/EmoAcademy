@@ -1,0 +1,12 @@
+/learning1-emotion_detection-main/
+/hf-emotion-api/
+/supabase/
+/docs/
+/DAiSEE/
+/node_modules/
+/.next/
+/out/
+/.git/
+/.env*
+/.codex-logs/
+/.specstory/

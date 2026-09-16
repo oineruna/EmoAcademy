@@ -34,6 +34,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 .codex-logs/
+.playwright-cli/
+supabase/.temp/
+
+# local datasets / training artifacts
+DAiSEE/
+**/DAiSEE/
+**/Dataset/
+**/.hf_cache/
+/*.full.pt
 
 # env files (can opt-in for committing if needed)
 .env*

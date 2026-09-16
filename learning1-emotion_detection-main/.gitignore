@@ -1,0 +1,12 @@
+*.pt
+*.db
+.venv/
+venv/
+venvnew
+__pycache__/
+*.pyc
+.DS_Store
+uploads
+emotion.db
+static/uploads
+uploads/

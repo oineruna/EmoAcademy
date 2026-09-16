@@ -24,14 +24,23 @@ except Exception:  # pragma: no cover
 
 try:
     import torch
+    import torch.nn as nn
 except Exception:  # pragma: no cover
     torch = None
+    nn = None
+
+try:
+    import timm
+except Exception:  # pragma: no cover
+    timm = None
 
 
 APP_VERSION = "emotion-api-2026-07-09"
 MODEL_DIR = Path("models")
 MODEL_PATH = os.getenv("MODEL_PATH") or os.getenv("ONNX_MODEL_PATH")
 EMOTION_KEYS = ["anger", "contempt", "disgust", "fear", "happiness", "neutral", "sadness", "surprise"]
+DAISEE_KEYS = ["boredom", "engagement", "confusion", "frustration"]
+DAISEE_NUM_FRAMES = int(os.getenv("DAISEE_NUM_FRAMES", "16"))
 
 app = FastAPI(title="EmoAcademy Emotion API", version=APP_VERSION)
 app.add_middleware(
@@ -44,6 +53,28 @@ app.add_middleware(
 _mp_detector = None
 _model: dict[str, Any] | None = None
 _model_error: str | None = None
+
+
+class DAiSEEEfficientNet(nn.Module if nn is not None else object):
+    """EfficientNet-B2 + temporal average pooling for DAiSEE 4-axis learning affect."""
+
+    def __init__(self, pretrained: bool = False, dropout_rate: float = 0.2):
+        if nn is None or timm is None:
+            raise RuntimeError("PyTorch/timm is required for the DAiSEE model")
+        super().__init__()
+        self.backbone = timm.create_model("efficientnet_b2", pretrained=pretrained, num_classes=0)
+        self.num_features = getattr(self.backbone, "num_features", 1408)
+        self.dropout = nn.Dropout(p=dropout_rate)
+        self.classifier = nn.Linear(self.num_features, 4 * 4)
+
+    def forward(self, x):
+        batch_size, num_frames, channels, height, width = x.size()
+        x_flat = x.view(batch_size * num_frames, channels, height, width)
+        features = self.backbone(x_flat)
+        features = features.view(batch_size, num_frames, self.num_features)
+        pooled_features = torch.mean(features, dim=1)
+        logits = self.classifier(self.dropout(pooled_features))
+        return logits.view(batch_size, 4, 4)
 
 
 def clamp(value: float, low: float, high: float) -> float:
@@ -75,7 +106,7 @@ def square_face_bbox(bbox: dict[str, Any], frame_width: int, frame_height: int, 
 def find_model_path() -> str | None:
     if MODEL_PATH and Path(MODEL_PATH).exists():
         return MODEL_PATH
-    for pattern in ("*.onnx", "*.pt", "*.pth"):
+    for pattern in ("daisee*.onnx", "daisee*.pt", "daisee*.pth", "*.onnx", "*.pt", "*.pth"):
         for path in MODEL_DIR.glob(pattern):
             return str(path)
     return None
@@ -93,9 +124,18 @@ def load_model() -> dict[str, Any] | None:
     if path.lower().endswith((".pt", ".pth")):
         if torch is None:
             raise RuntimeError("PyTorch is not available")
-        network = torch.load(path, map_location="cpu", weights_only=False)
+        checkpoint = torch.load(path, map_location="cpu", weights_only=False)
+        architecture = "daisee" if "daisee" in Path(path).name.lower() else "enet"
+        if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
+            network = DAiSEEEfficientNet(pretrained=False)
+            network.load_state_dict(checkpoint["model_state_dict"])
+            architecture = "daisee"
+        else:
+            network = checkpoint
+            if hasattr(network, "classifier") and "daisee" in network.__class__.__name__.lower():
+                architecture = "daisee"
         network.eval()
-        return {"mode": "torch", "network": network, "path": path, "loaded_at": time.time()}
+        return {"mode": "torch", "network": network, "path": path, "loaded_at": time.time(), "architecture": architecture}
     return None
 
 
@@ -226,6 +266,44 @@ def evaluate_capture_quality(
 def interpret_model_output(flat: np.ndarray):
     if flat.size < 2:
         raise RuntimeError("Model output must contain at least [valence, arousal]")
+    if flat.size == 16:
+        logits = flat.reshape(4, 4)
+        probabilities = np.stack([softmax(row) for row in logits], axis=0)
+        levels = np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float32)
+        daisee_scores = probabilities.dot(levels) / 3.0
+        daisee_pct = {
+            key: round(float(daisee_scores[index]) * 100)
+            for index, key in enumerate(DAISEE_KEYS)
+        }
+        engagement = float(daisee_scores[1])
+        support_load = float((daisee_scores[0] + daisee_scores[2] + daisee_scores[3]) / 3.0)
+        valence = clamp((engagement - support_load) * 1.25, -1, 1)
+        arousal = clamp(0.28 + engagement * 0.34 + float(daisee_scores[2]) * 0.22 + float(daisee_scores[3]) * 0.3, 0, 1)
+        emotion_pct = {
+            "anger": round(float(daisee_scores[3]) * 45),
+            "contempt": round(float(daisee_scores[0]) * 20),
+            "disgust": round(float(daisee_scores[3]) * 20),
+            "fear": round(float(daisee_scores[2]) * 55),
+            "happiness": round(engagement * 78),
+            "neutral": round(max(0.0, 1.0 - max(engagement, support_load)) * 75),
+            "sadness": round(float(daisee_scores[0]) * 62),
+            "surprise": round(float(daisee_scores[2]) * 25),
+        }
+        dominant_learning_index = int(np.argmax(daisee_scores))
+        dominant_learning = DAISEE_KEYS[dominant_learning_index]
+        dominant_emotion = max(emotion_pct, key=emotion_pct.get)
+        confidence = float(np.max(probabilities[dominant_learning_index]))
+        return {
+            "valence": valence,
+            "arousal": arousal,
+            "confidence": confidence,
+            "source": "daisee_efficientnet_b2",
+            "dominant": dominant_emotion,
+            "dominant_pct": emotion_pct[dominant_emotion],
+            "emotion_pct": emotion_pct,
+            "learning_affect_pct": daisee_pct,
+            "dominant_learning_affect": dominant_learning,
+        }
     if flat.size >= 10:
         valence = float(clamp(float(flat[-2]), -1, 1))
         raw_arousal = float(flat[-1])
@@ -270,6 +348,8 @@ def model_predict(face_img: np.ndarray, model: dict[str, Any]):
             raise RuntimeError("PyTorch is not available")
         with torch.no_grad():
             tensor = torch.from_numpy(arr).float()
+            if model.get("architecture") == "daisee":
+                tensor = tensor.unsqueeze(1).repeat(1, DAISEE_NUM_FRAMES, 1, 1, 1)
             out = model["network"](tensor)
             if isinstance(out, (list, tuple)):
                 out = out[0]
@@ -345,6 +425,8 @@ async def predict(file: UploadFile = File(...)):
         "dominant_emotion": prediction["dominant"],
         "dominant_pct": prediction["dominant_pct"],
         "emotion_pct": prediction["emotion_pct"],
+        "learning_affect_pct": prediction.get("learning_affect_pct"),
+        "dominant_learning_affect": prediction.get("dominant_learning_affect"),
         "bbox": bbox,
         "frame_width": int(frame_width),
         "frame_height": int(frame_height),

@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Camera, ChevronDown, X } from "lucide-react";
 import { getActiveSupabaseClient } from "@/lib/supabase/client";
 
 type Sample = { valence: number; arousal: number };
 type FaceBox = { x: number; y: number; width: number; height: number; source: string };
 type EmotionKey = "anger" | "contempt" | "disgust" | "fear" | "happiness" | "neutral" | "sadness" | "surprise";
+type LearningAffectKey = "boredom" | "engagement" | "confusion" | "frustration";
 type EmotionSummary = { pct: Record<EmotionKey, number>; dominant: EmotionKey; dominantPct: number };
 export type StudyEmotionSignal = Sample & { dominant: EmotionKey; confidence?: number; source?: string; modelVersion?: string; capturedAt: string };
 type RemoteEmotionResponse = {
@@ -14,6 +16,8 @@ type RemoteEmotionResponse = {
   confidence?: number;
   dominant_emotion?: EmotionKey;
   emotion_pct?: Partial<Record<EmotionKey, number>>;
+  learning_affect_pct?: Partial<Record<LearningAffectKey, number>>;
+  dominant_learning_affect?: LearningAffectKey;
   bbox?: FaceBox;
   frame_width?: number;
   frame_height?: number;
@@ -26,7 +30,7 @@ type RemoteEmotionResponse = {
 };
 
 const emotionKeys: EmotionKey[] = ["anger", "contempt", "disgust", "fear", "happiness", "neutral", "sadness", "surprise"];
-const defaultEmotionApiUrl = "https://emoacademy-emotion-api.hf.space";
+const learningAffectKeys: LearningAffectKey[] = ["boredom", "engagement", "confusion", "frustration"];
 const captureWidth = 480;
 const captureHeight = 360;
 const remoteWindowSize = 5;
@@ -129,11 +133,11 @@ function detectFaceBox(pixels: Uint8ClampedArray, width: number, height: number)
   return { x: width * 0.28, y: height * 0.13, width: width * 0.44, height: height * 0.58, source: "center-prior" };
 }
 
-function sampleRegion(pixels: Uint8ClampedArray, frameWidth: number, box: FaceBox) {
+function sampleRegion(pixels: Uint8ClampedArray, frameWidth: number, frameHeight: number, box: FaceBox) {
   const x1 = Math.max(0, Math.floor(box.x));
   const y1 = Math.max(0, Math.floor(box.y));
   const x2 = Math.min(frameWidth, Math.floor(box.x + box.width));
-  const y2 = Math.floor(box.y + box.height);
+  const y2 = Math.min(frameHeight, Math.floor(box.y + box.height));
   let luminance = 0;
   let warmth = 0;
   let redness = 0;
@@ -170,18 +174,21 @@ function getEmotionApiUrl() {
     typeof window === "undefined"
       ? undefined
       : (window as Window & { __EMOACADEMY_ENV__?: Record<string, string | undefined> }).__EMOACADEMY_ENV__;
-  return (process.env.NEXT_PUBLIC_EMOTION_API_URL || runtimeEnv?.NEXT_PUBLIC_EMOTION_API_URL || defaultEmotionApiUrl).replace(/\/$/, "");
+  const configuredUrl = process.env.NEXT_PUBLIC_EMOTION_API_URL || runtimeEnv?.NEXT_PUBLIC_EMOTION_API_URL;
+  return configuredUrl ? configuredUrl.replace(/\/$/, "") : null;
 }
 
-export function EmotionCamera({ onClose, language = "ja", autoStart = false, onSignal }: { onClose: () => void; language?: "ja" | "en"; autoStart?: boolean; onSignal?: (signal: StudyEmotionSignal) => void }) {
+export function EmotionCamera({ onClose, language = "ja", autoStart = false, onSignal, materialTitle }: { onClose: () => void; language?: "ja" | "en"; autoStart?: boolean; onSignal?: (signal: StudyEmotionSignal) => void; materialTitle?: string }) {
   const text = language === "ja" ? {
     stopped: "カメラは停止中", measuring: "表情を確認中", denied: "カメラを使えません。ブラウザの権限を確認してください。", close: "閉じる", local: "LIVE", ready: "READY", source: "入力", modelSource: "AIモデル", waitingSource: "AI応答待ち", fallbackSource: "簡易推定（API未接続）", startOnly: "カメラを開始するとリアルタイムに動きます", stop: "停止", start: "開始", current: "今の状態", trace: "リアルタイム推移", samples: "直近18サンプル", title: "感情モニター", active: "活性", positive: "前向き", mood: "気分", energy: "活性", highEnergy: "少し高め", positiveFocus: "前向き", needsPause: "休憩サイン", steadyFocus: "安定", liveEmotion: "現在の表情", latest: "最新", session: "学習中の教材", material: "Greetings & Introductions",
     qualityLabels: { face_too_small: "カメラに近づいてください", low_light: "顔を明るくしてください", overexposed: "光が強すぎます", low_contrast: "顔が見えにくい状態です", blurred: "映像がぶれています" } as Record<string, string>,
     labels: { anger: "怒り", contempt: "軽蔑", disgust: "嫌悪", fear: "不安", happiness: "前向き", neutral: "中立", sadness: "低下", surprise: "驚き" } as Record<EmotionKey, string>,
+    learningAffect: "学習状態", learningLabels: { boredom: "退屈", engagement: "集中・関与", confusion: "混乱", frustration: "負荷" } as Record<LearningAffectKey, string>,
   } : {
     stopped: "Camera is off", measuring: "Checking expression", denied: "Camera unavailable. Check your browser permission.", close: "Close", local: "LIVE", ready: "READY", source: "Input", modelSource: "AI model", waitingSource: "Waiting for AI", fallbackSource: "Simple estimate (API offline)", startOnly: "Start the camera to animate the live monitor", stop: "Stop", start: "Start", current: "Current state", trace: "Realtime trend", samples: "Latest 18 samples", title: "Emotion monitor", active: "ACTIVE", positive: "POSITIVE", mood: "Mood", energy: "Energy", highEnergy: "High energy", positiveFocus: "Positive", needsPause: "Pause sign", steadyFocus: "Steady", liveEmotion: "Current expression", latest: "Latest", session: "Session material", material: "Greetings & Introductions",
     qualityLabels: { face_too_small: "Move closer to the camera", low_light: "Add more light to your face", overexposed: "The light is too strong", low_contrast: "Your face is hard to see", blurred: "The image is blurred" } as Record<string, string>,
     labels: { anger: "Anger", contempt: "Contempt", disgust: "Disgust", fear: "Fear", happiness: "Happiness", neutral: "Neutral", sadness: "Sadness", surprise: "Surprise" } as Record<EmotionKey, string>,
+    learningAffect: "Learning state", learningLabels: { boredom: "Boredom", engagement: "Engagement", confusion: "Confusion", frustration: "Frustration" } as Record<LearningAffectKey, string>,
   };
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -202,6 +209,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
   const [faceBox, setFaceBox] = useState<FaceBox | null>(null);
   const [sourceKind, setSourceKind] = useState<"waiting" | "model" | "fallback">("waiting");
   const [qualityWarnings, setQualityWarnings] = useState<string[]>([]);
+  const [learningAffectPct, setLearningAffectPct] = useState<Partial<Record<LearningAffectKey, number>> | null>(null);
   const [modelSummary, setModelSummary] = useState<EmotionSummary | null>(null);
   const fallbackSummary = useMemo(() => summarizeEmotion(sample), [sample]);
   const summary = modelSummary || fallbackSummary;
@@ -215,6 +223,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
     setActive(false);
     setStatus(text.stopped);
     setFaceBox(null);
+    setLearningAffectPct(null);
   }, [text.stopped]);
 
   useEffect(() => stop, [stop]);
@@ -243,13 +252,15 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
 
   async function requestRemoteEmotion(canvas: HTMLCanvasElement) {
     if (remoteBusy.current) return;
+    const emotionApiUrl = getEmotionApiUrl();
+    if (!emotionApiUrl) return;
     remoteBusy.current = true;
     try {
       const blob = await canvasToBlob(canvas);
       if (!blob) return;
       const body = new FormData();
       body.append("file", blob, "frame.jpg");
-      const response = await fetch(`${getEmotionApiUrl()}/predict`, { method: "POST", body });
+      const response = await fetch(`${emotionApiUrl}/predict`, { method: "POST", body });
       if (!response.ok) return;
       const data = (await response.json()) as RemoteEmotionResponse;
       if (typeof data.valence !== "number" || typeof data.arousal !== "number") return;
@@ -264,6 +275,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
       setHistory((items) => [...items.slice(-18), next]);
       setModelSummary(nextSummary);
       setQualityWarnings(data.quality?.warnings || []);
+      setLearningAffectPct(data.learning_affect_pct || null);
       if (data.bbox) setFaceBox(data.bbox);
       setSourceKind("model");
       onSignal?.({ ...next, dominant, confidence: data.confidence, source: data.source || "emotion-api", modelVersion: data.model_version, capturedAt: new Date().toISOString() });
@@ -284,7 +296,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
     const box = detectFaceBox(pixels, canvas.width, canvas.height);
-    const region = sampleRegion(pixels, canvas.width, box);
+    const region = sampleRegion(pixels, canvas.width, canvas.height, box);
     const motion = Math.min(1, Math.abs(region.luminance - previousBrightness.current) * 8);
     previousBrightness.current = region.luminance;
     const next = {
@@ -303,7 +315,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
       onSignal?.({ ...next, dominant: localSummary.dominant, source: "browser-fallback", capturedAt: new Date().toISOString() });
       void saveEmotionSample(next, localSummary.dominant, undefined, "browser-fallback", undefined);
     }
-    if (now - lastRemoteAt.current > 1800) {
+    if (getEmotionApiUrl() && now - lastRemoteAt.current > 1800) {
       lastRemoteAt.current = now;
       void requestRemoteEmotion(canvas);
     }
@@ -311,7 +323,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
 
   async function start() {
     try {
-      lastRemoteSuccessAt.current = 0;
+      lastRemoteSuccessAt.current = getEmotionApiUrl() ? Date.now() : 0;
       remoteSamples.current = [];
       remoteSummaries.current = [];
       setModelSummary(null);
@@ -356,32 +368,30 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
   const boxStyle = faceBox ? toPercentBox(faceBox, captureWidth, captureHeight) : undefined;
   const ringSweep = Math.round((summary.dominantPct / 100) * 360);
   const sourceLabel = sourceKind === "model" ? text.modelSource : sourceKind === "fallback" ? text.fallbackSource : text.waitingSource;
+  const hasMeasurement = history.length > 0;
+  const stateLabel = active ? (language === "ja" ? "計測中" : "Measuring") : hasMeasurement ? (language === "ja" ? "停止中" : "Stopped") : (language === "ja" ? "未計測" : "Not measured");
 
   return (
-    <section className={`emotion-dock ${active ? "is-live" : "is-idle"}`} aria-label={language === "ja" ? "学習シグナルモニター" : "Study signal monitor"}>
+    <section className={`emotion-dock emotion-monitor-card ${active ? "is-live" : "is-idle"}`} aria-label={text.title}>
       <header className="emotion-dock-head">
-        <div><span className={active ? "live-pip active" : "live-pip"} /> <strong>{text.title}</strong><small>{active ? text.local : text.ready}</small></div>
-        <button type="button" onClick={() => { stop(); onClose(); }} aria-label={text.close}>×</button>
+        <div><strong>{text.title}</strong><small>{stateLabel}</small></div>
+        <button type="button" onClick={() => { stop(); onClose(); }} aria-label={text.close}><X aria-hidden="true" /></button>
       </header>
-      <div className="session-material compact">
-        <label htmlFor="emotion-session">{text.session}</label>
-        <select id="emotion-session" defaultValue="greetings">
-          <option value="greetings">{text.material}</option>
-          <option value="conversation">Conversation Practice</option>
-          <option value="review">Unit 1 Review</option>
-        </select>
-      </div>
-      <div className="emotion-grid">
-        <div className="camera-frame">
+      <div className="emotion-idle-body">
+        <div className="emotion-video-frame">
           <video ref={videoRef} muted playsInline />
           {active && boxStyle && <i className="face-bbox" style={boxStyle} aria-hidden="true" />}
-          {!active && <div className="camera-placeholder"><span>◉</span><p>{text.startOnly}</p></div>}
+          {!active && <div className="emotion-idle-placeholder"><span><Camera aria-hidden="true" /></span><p>{language === "ja" ? "学習中の状態をここに表示" : "Your learning state appears here"}</p></div>}
           <canvas ref={canvasRef} width={captureWidth} height={captureHeight} hidden />
-          <div className="camera-controls">
-            <span><b className={active ? "camera-dot-live active" : "camera-dot-live"} />{status}</span>
-            <button type="button" onClick={active ? stop : start}>{active ? text.stop : text.start}</button>
-          </div>
         </div>
+        <button className="emotion-start-button" type="button" onClick={active ? stop : start}>{active ? (language === "ja" ? "計測を停止" : "Stop measuring") : (language === "ja" ? "計測を開始" : "Start measuring")}</button>
+        {(active || status === text.denied) && <p className="emotion-monitor-status" role="status">{status}</p>}
+      </div>
+      <details className="emotion-idle-details emotion-live-details">
+        <summary>{language === "ja" ? "詳細を見る" : "View details"}<ChevronDown aria-hidden="true" /></summary>
+        <div className="emotion-material-label"><small>{text.session}</small><strong>{materialTitle || text.material}</strong></div>
+        {hasMeasurement ? <>
+        <div className="emotion-grid">
         <div className="signal-card">
           <div className="signal-label"><span>{text.current}</span><strong>{label}</strong></div>
           <div className="circumplex" aria-label={`${text.mood} ${sample.valence.toFixed(2)}, ${text.energy} ${sample.arousal.toFixed(2)}`}>
@@ -404,15 +414,22 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
         </div>
       </div>
       <div className="emotion-percent-list">
-        {emotionKeys.map((key) => (
+        {learningAffectPct && <strong className="emotion-percent-title">{text.learningAffect}</strong>}
+        {(learningAffectPct ? learningAffectKeys : emotionKeys).map((key) => {
+          const value = learningAffectPct
+            ? Math.round(Number(learningAffectPct[key as LearningAffectKey] || 0))
+            : summary.pct[key as EmotionKey];
+          return (
           <div key={key}>
-            <span>{text.labels[key]}</span>
-            <i><b style={{ width: `${summary.pct[key]}%` }} /></i>
-            <strong>{summary.pct[key]}%</strong>
+            <span>{learningAffectPct ? text.learningLabels[key as LearningAffectKey] : text.labels[key as EmotionKey]}</span>
+            <i><b style={{ width: `${value}%` }} /></i>
+            <strong>{value}%</strong>
           </div>
-        ))}
+        );})}
       </div>
       <div className="signal-timeline"><div><strong>{text.trace}</strong><span>{text.samples}</span></div><svg viewBox="0 0 100 48" preserveAspectRatio="none"><line x1="0" y1="24" x2="100" y2="24" /><polyline className="valence-line" points={pathValence || "0,24 100,24"} /><polyline className="arousal-line" points={pathArousal || "0,30 100,30"} /></svg><footer><span>{text.mood}</span><span>{text.energy}</span></footer></div>
+        </> : <p className="emotion-no-measurement">{language === "ja" ? "計測を開始すると、表情・気分・活性を確認できます。" : "Start measuring to see expression, mood and energy."}</p>}
+      </details>
     </section>
   );
 }

@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Login — Emotion Monitor</title>
+    <link rel="stylesheet" href="/static/login.css" />
+  </head>
+  <body>
+    <main class="login-screen">
+      <div class="login-background">
+        <span class="blob blob-top"></span>
+        <span class="blob blob-bottom"></span>
+        <span class="blob blob-mid"></span>
+      </div>
+
+      <section class="login-card" aria-labelledby="welcomeTitle">
+        <div class="login-illustration">
+          <div class="illustration-shell">
+            <div class="illustration-badge">
+              <span>Emotion & Engagement Monitor</span>
+              <strong>English Learning</strong>
+            </div>
+
+            <div class="illustration-panel">
+              <div class="illustration-glow"></div>
+              <div class="illustration-device">
+                <div class="device-screen">
+                  <div class="device-header">
+                    <span class="status-pill"></span>
+                    <span class="status-pill"></span>
+                    <span class="status-pill"></span>
+                  </div>
+                  <div class="device-content">
+                    <div class="avatar"></div>
+                    <div class="speech">
+                      <span class="speech-line"></span>
+                      <span class="speech-line short"></span>
+                    </div>
+                    <div class="emotion-wave"></div>
+                    <div class="emotion-dots">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="illustration-student">
+                <div class="student-head"></div>
+                <div class="student-body"></div>
+                <div class="student-arm"></div>
+                <div class="student-book"></div>
+              </div>
+
+              <div class="illustration-lock">
+                <div class="lock-body"></div>
+                <div class="lock-ring"></div>
+              </div>
+
+              <div class="illustration-orbit"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="login-form" id="authSection">
+          <div class="form-header">
+            <h1 id="welcomeTitle">Welcome Back!</h1>
+            <p>Sign in to continue your English learning journey</p>
+          </div>
+
+          <div class="input-group">
+            <label for="loginEmail">Email Address</label>
+            <div class="input-shell">
+              <span class="input-icon" aria-hidden="true">@</span>
+              <input id="loginEmail" type="email" placeholder="name@example.com" autocomplete="email" />
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label for="loginPassword">Password</label>
+            <div class="input-shell">
+              <span class="input-icon" aria-hidden="true">&#128274;</span>
+              <input id="loginPassword" type="password" placeholder="Enter your password" autocomplete="current-password" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <a class="forgot-link" href="#">Forgot Password?</a>
+          </div>
+
+          <div class="button-row">
+            <button id="loginBtn" class="btn primary">Sign In</button>
+            <a class="btn ghost" href="/static/register.html">Sign Up</a>
+          </div>
+
+          
+
+          <p class="form-footer">Emotion & Engagement Monitor</p>
+
+          <section id="messageSection">
+            <div id="appMessage" class="alert" role="alert"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js?v=20260713d"></script>
+  </body>
+</html>

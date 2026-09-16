@@ -1,0 +1,906 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teacher Dashboard — EEALS</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+</head>
+
+<body class="bg-body-tertiary teacher-body">
+
+  <!-- Redesigned Top Header Bar -->
+  <header class="teacher-header-bar">
+    <div class="header-info">
+      <h1>Teacher Dashboard</h1>
+      <p class="mb-0">Ethical Emotion-Aware Learning System</p>
+    </div>
+    <div class="header-badge-row d-none d-xl-flex">
+      <span class="header-badge-consent">Consent Active</span>
+      <span class="header-ethical-note">Emotion insights are support cues only. Use ethically and with consent.</span>
+    </div>
+    <div class="header-actions">
+      <button id="teacherTopRefreshBtn" class="header-refresh-btn">
+        <span>🔄</span> Refresh
+      </button>
+      <div class="teacher-profile-card">
+        <div class="teacher-profile-avatar">MH</div>
+        <div class="teacher-profile-info">
+          <span class="teacher-profile-name" id="userInfo">Ms. Hatta</span>
+          <span class="teacher-profile-role">Teacher</span>
+        </div>
+        <span class="small text-muted" style="margin-left: 2px;">▼</span>
+      </div>
+      <button id="logoutBtn" class="header-logout-btn">Logout</button>
+    </div>
+  </header>
+
+  <main class="container-fluid px-3 py-3 teacher-shell">
+    <div class="teacher-layout">
+
+      <!-- Left Sidebar Column -->
+      <aside class="teacher-sidebar">
+
+        <!-- Brand Logo Card -->
+        <div class="sidebar-card">
+          <div class="teacher-sidebar-brand d-flex align-items-center gap-2">
+            <div class="brand-mark brand-mark-sm" aria-hidden="true" style="font-size: 1.15rem; line-height: 1;">◉</div>
+            <div>
+              <div class="teacher-sidebar-brand-title">EEALS</div>
+              <div class="teacher-sidebar-brand-subtitle">Ethical Emotion-Aware Learning System</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Navigation Links Card -->
+        <div class="sidebar-card">
+          <div class="sidebar-title">NAVIGATION</div>
+          <nav class="sidebar-nav">
+            <a href="#teacher-overview" class="sidebar-link active">
+              <span>📊</span> Overview
+            </a>
+            <a href="#teacher-progress" class="sidebar-link">
+              <span>📈</span> Progress
+            </a>
+            <a href="#teacher-emotion" class="sidebar-link">
+              <span>🧠</span> Emotion Insights
+            </a>
+            <a href="#teacher-student-report" class="sidebar-link">
+              <span>👤</span> Student Report
+            </a>
+            <a href="#teacher-materials" class="sidebar-link">
+              <span>📂</span> Materials
+            </a>
+            <a href="#teacher-settings" class="sidebar-link">
+              <span>⚙️</span> Settings
+            </a>
+          </nav>
+        </div>
+
+        <!-- Quick Filters Card -->
+        <div class="sidebar-card filter-card">
+          <div class="sidebar-title">QUICK FILTERS</div>
+          <div class="mb-3">
+            <label for="filterClass" class="form-label mb-1">Class</label>
+            <select id="filterClass" class="form-select form-select-sm">
+              <option>Class 7A</option>
+              <option>Class 7B</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="filterSubject" class="form-label mb-1">Subject</label>
+            <select id="filterSubject" class="form-select form-select-sm">
+              <option>Science</option>
+              <option>Mathematics</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label for="teacherMaterialFilter" class="form-label mb-1">Focus Material</label>
+            <select id="teacherMaterialFilter" class="form-select form-select-sm"></select>
+          </div>
+          <div class="mb-3">
+            <label for="teacherStudentFilter" class="form-label mb-1">Focus Student</label>
+            <select id="teacherStudentFilter" class="form-select form-select-sm"></select>
+          </div>
+          <div class="mb-3">
+            <label for="filterConsent" class="form-label mb-1">Consent</label>
+            <select id="filterConsent" class="form-select form-select-sm">
+              <option>Consent Active</option>
+              <option>Consent Pending</option>
+            </select>
+          </div>
+          <div class="d-grid gap-2 mt-3">
+            <button id="refreshTeacherDashboardBtn" class="btn btn-outline-primary btn-sm">Refresh Dashboard</button>
+            <button id="loadTeacherCommentsBtn" class="btn btn-outline-secondary btn-sm">Refresh Comments</button>
+          </div>
+        </div>
+
+        <!-- Ethical Reminder Card -->
+        <div class="sidebar-card ethical-reminder-card">
+          <div class="reminder-title d-flex align-items-center gap-2">
+            <span>🛡️</span> Ethical Reminder
+          </div>
+          <div id="teacherConsentNote" class="small mb-3" style="color: #1e3a8a; opacity: 0.85;">Consent status loads
+            here before any emotion analysis is shown.</div>
+          <ul>
+            <li>Use emotion signals only as learning support cues.</li>
+            <li>No diagnosis.</li>
+            <li>No grading from emotion data.</li>
+            <li>Respect consent.</li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Main Content Area Column -->
+      <section class="teacher-main">
+
+        <!-- 5-Column Stat Summary Cards -->
+        <section class="stat-cards-grid" id="teacher-overview">
+          <article class="stat-card-custom">
+            <div class="stat-card-icon-wrap blue">📖</div>
+            <div class="stat-card-info">
+              <span class="stat-card-value" id="teacherMetricMaterials">0</span>
+              <span class="stat-card-label">Learning Materials</span>
+              <span class="stat-card-sublabel">Total uploaded</span>
+            </div>
+          </article>
+          <article class="stat-card-custom">
+            <div class="stat-card-icon-wrap indigo">📝</div>
+            <div class="stat-card-info">
+              <span class="stat-card-value" id="teacherMetricAssignments">0</span>
+              <span class="stat-card-label">Assignments Active</span>
+              <span class="stat-card-sublabel">Across subjects</span>
+            </div>
+          </article>
+          <article class="stat-card-custom">
+            <div class="stat-card-icon-wrap green">👥</div>
+            <div class="stat-card-info">
+              <span class="stat-card-value" id="teacherMetricStudents">0</span>
+              <span class="stat-card-label">Students Tracked</span>
+              <span class="stat-card-sublabel">With assignments</span>
+            </div>
+          </article>
+          <article class="stat-card-custom">
+            <div class="stat-card-icon-wrap orange">✅</div>
+            <div class="stat-card-info">
+              <span class="stat-card-value">95%</span>
+              <span class="stat-card-label">Consent Coverage</span>
+              <span class="stat-card-sublabel">Active consent</span>
+            </div>
+          </article>
+          <article class="stat-card-custom">
+            <div class="stat-card-icon-wrap purple">🚩</div>
+            <div class="stat-card-info">
+              <span class="stat-card-value" id="teacherMetricSupport">0</span>
+              <span class="stat-card-label">Support Cues</span>
+              <span class="stat-card-sublabel">Needs attention</span>
+            </div>
+          </article>
+        </section>
+
+        <!-- Class Emotion Insights Panel -->
+        <section class="insights-panel" id="teacher-emotion">
+          <div class="insights-header-row">
+            <div class="insights-title-block">
+              <h2>Class Emotion Insights</h2>
+              <p>Arousal–valence trends and ethical support cues</p>
+            </div>
+            <div class="insights-controls">
+              <select class="insights-select" id="insightsPeriodSelect">
+                <option>Last 7 Days</option>
+                <option>Last 30 Days</option>
+              </select>
+              <button class="insights-refresh-icon-btn"
+                onclick="document.getElementById('teacherTopRefreshBtn').click();" title="Refresh charts">🔄</button>
+            </div>
+          </div>
+
+          <!-- Insights horizontal metrics bar -->
+          <div class="insights-metrics-bar">
+            <div class="insights-metric-item">
+              <div class="insights-metric-icon" style="background: #eef2ff; color: #3b82f6;">💓</div>
+              <div class="insights-metric-details">
+                <span class="insights-metric-value" id="insightsLogsVal">312</span>
+                <span class="insights-metric-label">Emotion Logs</span>
+              </div>
+            </div>
+            <div class="insights-metric-item">
+              <div class="insights-metric-icon" style="background: #ecfdf5; color: #10b981;">📈</div>
+              <div class="insights-metric-details">
+                <span class="insights-metric-value" id="insightsValenceVal">+0.12</span>
+                <span class="insights-metric-label">Valence Mean</span>
+                <span class="insights-metric-subtext">(-1 to +1)</span>
+              </div>
+            </div>
+            <div class="insights-metric-item">
+              <div class="insights-metric-icon" style="background: #fff7ed; color: #f59e0b;">⚙️</div>
+              <div class="insights-metric-details">
+                <span class="insights-metric-value" id="insightsArousalVal">0.42</span>
+                <span class="insights-metric-label">Arousal Mean</span>
+                <span class="insights-metric-subtext">(0 to 1)</span>
+              </div>
+            </div>
+            <div class="insights-metric-item">
+              <div class="insights-metric-icon" style="background: #faf5ff; color: #8b5cf6;">🚩</div>
+              <div class="insights-metric-details">
+                <span class="insights-metric-value" id="insightsFlagsVal">12</span>
+                <span class="insights-metric-label">Support Cue Flagged</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts row -->
+          <div class="insights-charts-grid">
+            <div class="chart-panel-card">
+              <div class="chart-panel-title">Emotion Timeline (Class Average)</div>
+              <div class="chart-panel-canvas-container">
+                <canvas id="teacherClassTimeline"></canvas>
+              </div>
+            </div>
+            <div class="chart-panel-card">
+              <div class="chart-panel-title">Arousal-Valence Chart (Class Snapshot)</div>
+              <div class="chart-panel-canvas-container">
+                <div id="teacherClassScatter" class="teacher-scatter" style="height: 100%; width: 100%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inner dynamic logs text (hidden tracker helper for app.js integration) -->
+          <div class="d-none" id="teacherDashboardStatus">Waiting for dashboard data</div>
+
+          <!-- Ethical warning -->
+          <div class="insights-ethical-alert">
+            <span>💡</span>
+            <span>Signals indicate possible engagement, confusion, or low focus — review ethically.</span>
+          </div>
+        </section>
+
+        <!-- Assignment Progress Section -->
+        <section class="progress-panel" id="teacher-progress">
+          <div class="progress-header-row">
+            <div class="progress-title-block">
+              <h2>Assignment Progress</h2>
+              <p>Opened, completed, and focus ratios of learners</p>
+            </div>
+            <span class="badge-custom opened" id="teacherAssignmentSummary" style="font-size: 0.72rem;">0 assignments
+              tracked</span>
+          </div>
+
+          <div class="progress-table-wrap table-responsive">
+            <table class="table align-middle teacher-table mb-0">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Opened</th>
+                  <th>Completed</th>
+                  <th>Focus Ratio</th>
+                  <th>Support Cue</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="teacherProgressTable">
+                <tr>
+                  <td colspan="6" class="text-body-secondary text-center">Loading progress overview...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- Material Management Section (Collapsible) -->
+        <section class="card insights-panel materials-collapsible-panel" id="teacher-materials">
+          <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center border-0"
+            data-bs-toggle="collapse" data-bs-target="#materialsCollapse" style="cursor: pointer;">
+            <h2 class="h5 mb-0 fw-bold d-flex align-items-center gap-2">
+              <span>📂</span> Material Management
+            </h2>
+            <span class="fs-5 text-muted" id="collapseChevron">▲</span>
+          </div>
+
+          <div id="materialsCollapse" class="collapse show">
+            <div class="card-body pt-0">
+              <hr class="mt-0 mb-4" />
+
+              <div class="teacher-material-grid">
+                <!-- Upload Form Panel -->
+                <div class="teacher-subpanel card border-0 shadow-none">
+                  <div class="card-body p-0">
+                    <h3 class="h6 mb-3 fw-bold text-primary">Upload material</h3>
+                    <div class="row g-3">
+                      <div class="col-12 col-md-6">
+                        <label for="teacherTitle" class="form-label small mb-1 fw-semibold text-muted">Title</label>
+                        <input id="teacherTitle" class="form-control form-control-sm" type="text"
+                          placeholder="Lesson title" />
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <label for="teacherSubject" class="form-label small mb-1 fw-semibold text-muted">Subject</label>
+                        <input id="teacherSubject" class="form-control form-control-sm" type="text"
+                          placeholder="Course or unit" />
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <label for="teacherMaterialType" class="form-label small mb-1 fw-semibold text-muted">Material
+                          Type</label>
+                        <select id="teacherMaterialType" class="form-select form-select-sm">
+                          <option value="pdf">PDF</option>
+                          <option value="video">Video Link</option>
+                          <option value="essay">Essay Question</option>
+                          <option value="mcq">Multiple Choice Question</option>
+                        </select>
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <label for="teacherDuration" class="form-label small mb-1 fw-semibold text-muted">Duration
+                          (min)</label>
+                        <input id="teacherDuration" class="form-control form-control-sm" type="number" min="0"
+                          placeholder="45" />
+                      </div>
+                      <div class="col-12 col-md-4" id="videoUrlWrapper" style="display: none;">
+                        <label for="teacherExternalUrl" class="form-label small mb-1 fw-semibold text-muted">Video
+                          URL</label>
+                        <input id="teacherExternalUrl" class="form-control form-control-sm" type="url"
+                          placeholder="https://youtube.com/..." />
+                      </div>
+                      <div class="col-12" id="instructionWrapper">
+                        <label id="instructionLabel" for="teacherInstruction"
+                          class="form-label small mb-1 fw-semibold text-muted">Learning instructions</label>
+                        <textarea id="teacherInstruction" class="form-control form-control-sm" rows="3" maxlength="4000"
+                          placeholder="Tell students what to focus on, how long it should take, and what to submit."></textarea>
+                      </div>
+                      <div class="col-12 col-md-8" id="pdfUploadWrapper">
+                        <label for="teacherFile" class="form-label small mb-1 fw-semibold text-muted">PDF File</label>
+                        <input id="teacherFile" class="form-control form-control-sm" type="file"
+                          accept="application/pdf" />
+                      </div>
+                      <div class="col-12 row g-3 mt-1" id="mcqOptionsWrapper" style="display: none;">
+                        <div class="col-12 col-md-6">
+                          <label for="teacherMcqOptionA" class="form-label small mb-1 fw-semibold text-muted">Option
+                            A</label>
+                          <input id="teacherMcqOptionA" class="form-control form-control-sm" type="text"
+                            placeholder="Option A" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="teacherMcqOptionB" class="form-label small mb-1 fw-semibold text-muted">Option
+                            B</label>
+                          <input id="teacherMcqOptionB" class="form-control form-control-sm" type="text"
+                            placeholder="Option B" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="teacherMcqOptionC" class="form-label small mb-1 fw-semibold text-muted">Option C
+                            (Optional)</label>
+                          <input id="teacherMcqOptionC" class="form-control form-control-sm" type="text"
+                            placeholder="Option C" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="teacherMcqOptionD" class="form-label small mb-1 fw-semibold text-muted">Option D
+                            (Optional)</label>
+                          <input id="teacherMcqOptionD" class="form-control form-control-sm" type="text"
+                            placeholder="Option D" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="teacherMcqOptionE" class="form-label small mb-1 fw-semibold text-muted">Option E
+                            (Optional)</label>
+                          <input id="teacherMcqOptionE" class="form-control form-control-sm" type="text"
+                            placeholder="Option E" />
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label for="teacherMcqCorrect" class="form-label small mb-1 fw-semibold text-muted">Correct
+                            Answer</label>
+                          <select id="teacherMcqCorrect" class="form-select form-select-sm">
+                            <option value="A">Option A</option>
+                            <option value="B">Option B</option>
+                            <option value="C">Option C</option>
+                            <option value="D">Option D</option>
+                            <option value="E">Option E</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="col-12" id="explanationWrapper" style="display: none;">
+                        <label for="teacherExplanation" class="form-label small mb-1 fw-semibold text-muted">Explanation
+                          / Description</label>
+                        <textarea id="teacherExplanation" class="form-control form-control-sm" rows="2"
+                          placeholder="Optional explanation or extra description."></textarea>
+                      </div>
+                      <div class="col-12" id="mcqBulkWrapper" style="display: none;">
+                        <hr class="my-2" />
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                          <h4 class="h6 mb-0 text-primary fw-bold">MCQ Questions</h4>
+                          <button id="addMcqQuestionBtn" class="btn btn-outline-primary btn-xs py-1 px-2" style="font-size: 0.75rem;" type="button">+ Add Question</button>
+                        </div>
+                        <div id="mcqQuestionsList" class="d-flex flex-column gap-3">
+                          <!-- Question cards will be dynamically added here -->
+                        </div>
+                        <hr class="my-2" />
+                      </div>
+                      <div class="col-12" id="essayBulkWrapper" style="display: none;">
+                        <hr class="my-2" />
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                          <h4 class="h6 mb-0 text-primary fw-bold">Essay Questions</h4>
+                          <button id="addEssayQuestionBtn" class="btn btn-outline-primary btn-xs py-1 px-2" style="font-size: 0.75rem;" type="button">+ Add Question</button>
+                        </div>
+                        <div id="essayQuestionsList" class="d-flex flex-column gap-3">
+                          <!-- Question cards will be dynamically added here -->
+                        </div>
+                        <hr class="my-2" />
+                      </div>
+                      <div class="col-12 col-md-4 d-grid align-self-end">
+                        <button id="teacherUploadBtn" class="btn btn-primary btn-sm">Upload material</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Edit and Assign Panel -->
+                <div class="teacher-subpanel card border-0 shadow-none">
+                  <div class="card-body p-0">
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+                      <h3 class="h6 mb-0 fw-bold text-success">Manage Selected Material</h3>
+                      <button id="loadTeacherMaterialBtn" class="btn btn-outline-primary btn-sm py-1 px-2"
+                        style="font-size: 0.72rem;">Load selected</button>
+                    </div>
+                    <div class="mb-3">
+                      <label for="teacherMaterialSelect" class="form-label small mb-1 fw-semibold text-muted">Your
+                        materials</label>
+                      <select id="teacherMaterialSelect" class="form-select form-select-sm"></select>
+                    </div>
+                    <div class="row g-3">
+                      <div class="col-12 col-md-6">
+                        <label for="editTitle" class="form-label small mb-1 fw-semibold text-muted">Title</label>
+                        <input id="editTitle" class="form-control form-control-sm" type="text" />
+                      </div>
+                      <div class="col-12 col-md-6">
+                        <label for="editSubject" class="form-label small mb-1 fw-semibold text-muted">Subject</label>
+                        <input id="editSubject" class="form-control form-control-sm" type="text" />
+                      </div>
+                      <div class="col-12 col-md-4">
+                        <label for="editDuration" class="form-label small mb-1 fw-semibold text-muted">Duration
+                          (min)</label>
+                        <input id="editDuration" class="form-control form-control-sm" type="number" min="0" />
+                      </div>
+                      <div class="col-12 col-md-8" id="editUrlWrapper">
+                        <label for="editExternalUrl" class="form-label small mb-1 fw-semibold text-muted">External
+                          URL</label>
+                        <input id="editExternalUrl" class="form-control form-control-sm" type="url" />
+                      </div>
+                      <div class="col-12" id="editInstructionWrapper">
+                        <label id="editInstructionLabel" for="editInstruction"
+                          class="form-label small mb-1 fw-semibold text-muted">Instruction</label>
+                        <textarea id="editInstruction" class="form-control form-control-sm" rows="3"
+                          maxlength="4000"></textarea>
+                      </div>
+                      <div class="col-12 row g-3 mt-1" id="editMcqWrapper" style="display: none;">
+                        <div class="col-12 col-md-6">
+                          <label for="editMcqOptionA" class="form-label small mb-1 fw-semibold text-muted">Option
+                            A</label>
+                          <input id="editMcqOptionA" class="form-control form-control-sm" type="text" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="editMcqOptionB" class="form-label small mb-1 fw-semibold text-muted">Option
+                            B</label>
+                          <input id="editMcqOptionB" class="form-control form-control-sm" type="text" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="editMcqOptionC" class="form-label small mb-1 fw-semibold text-muted">Option
+                            C</label>
+                          <input id="editMcqOptionC" class="form-control form-control-sm" type="text" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="editMcqOptionD" class="form-label small mb-1 fw-semibold text-muted">Option
+                            D</label>
+                          <input id="editMcqOptionD" class="form-control form-control-sm" type="text" />
+                        </div>
+                        <div class="col-12 col-md-6">
+                          <label for="editMcqOptionE" class="form-label small mb-1 fw-semibold text-muted">Option
+                            E</label>
+                          <input id="editMcqOptionE" class="form-control form-control-sm" type="text" />
+                        </div>
+                        <div class="col-12 col-md-4">
+                          <label for="editMcqCorrect" class="form-label small mb-1 fw-semibold text-muted">Correct
+                            Answer</label>
+                          <select id="editMcqCorrect" class="form-select form-select-sm">
+                            <option value="A">Option A</option>
+                            <option value="B">Option B</option>
+                            <option value="C">Option C</option>
+                            <option value="D">Option D</option>
+                            <option value="E">Option E</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div class="col-12" id="editExplanationWrapper" style="display: none;">
+                        <label for="editExplanation" class="form-label small mb-1 fw-semibold text-muted">Explanation /
+                          Description</label>
+                        <textarea id="editExplanation" class="form-control form-control-sm" rows="2"></textarea>
+                      </div>
+                      <div class="col-12" id="editMcqBulkWrapper" style="display: none;">
+                        <hr class="my-2" />
+                        <h4 class="h6 mb-3 text-success fw-bold">Group Questions</h4>
+                        <div id="editMcqQuestionsList" class="d-flex flex-column gap-3">
+                          <!-- Question cards will go here dynamically -->
+                        </div>
+                        <hr class="my-2" />
+                      </div>
+                      <div class="col-12 col-md-4 d-grid">
+                        <button id="saveMaterialEditBtn" class="btn btn-success btn-sm">Edit / Save</button>
+                      </div>
+                    </div>
+
+                    <hr class="my-3" />
+
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                      <button id="previewMaterialBtn" type="button" class="btn btn-primary btn-sm flex-fill">Preview
+                        Material</button>
+                      <button id="viewSubmissionsBtn" type="button"
+                        class="btn btn-info btn-sm text-white flex-fill">View Submissions</button>
+                      <button id="deleteMaterialBtn" type="button" class="btn btn-danger btn-sm flex-fill">Delete
+                        Material</button>
+                    </div>
+
+                    <!-- Comments list discussion -->
+                    <div class="mt-4">
+                      <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h4 class="h6 mb-0 fw-bold text-dark">Teacher Comments & Questions</h4>
+                        <span class="small text-muted" style="font-size: 0.72rem;">Selected material discussion</span>
+                      </div>
+                      <div id="teacherComments" class="small teacher-comments"></div>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- Student Report Section (Tab Content) -->
+        <section class="insights-panel" id="teacher-student-report" style="display: none;">
+          <div class="row g-3">
+            <!-- Individual Student Report Card -->
+            <div class="col-12 col-xl-7">
+              <div class="sidebar-right-card h-100" id="studentReportCard">
+                <div class="report-card-header">
+                  <div class="report-card-avatar" id="reportAvatar">AR</div>
+                  <div class="report-card-title-info">
+                    <div class="section-kicker" style="margin-bottom: 0.15rem;">Individual Student Report</div>
+                    <h3 id="teacherSelectedStudentTitle">Select a student</h3>
+                    <p id="teacherSelectedStudentMeta">Choose a learner from the roster.</p>
+                  </div>
+                  <div class="report-nav-btns">
+                    <button type="button" class="report-nav-btn" onclick="selectPrevStudent();"
+                      title="Previous Student">◀</button>
+                    <button type="button" class="report-nav-btn" onclick="selectNextStudent();"
+                      title="Next Student">▶</button>
+                  </div>
+                </div>
+
+                <!-- Consent badge -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <span class="small fw-semibold text-muted">Consent status:</span>
+                  <span id="teacherSelectedStudentConsent" class="badge-custom completed">Consent active</span>
+                </div>
+
+                <!-- Alert notification box -->
+                <div class="mb-3 p-2 bg-light border rounded small" id="teacherSelectedStudentNote">
+                  Choose a learner from the table or class roster to load their detailed ethical insights.
+                </div>
+
+                <!-- Dynamic grid items (replaces standard table body) -->
+                <div class="teacher-summary-table-wrap mb-3 p-2">
+                  <table class="table table-sm align-middle teacher-summary-table mb-0" style="border:none;">
+                    <tbody id="teacherSelectedStudentSummary">
+                      <tr>
+                        <td colspan="2" class="text-body-secondary text-center">Summary will appear here.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Supportive cues checklist suggestions -->
+                <div class="mb-2 fw-bold small text-muted">SUPPORT SUGGESTIONS</div>
+                <div id="teacherStudentSupportList" class="teacher-support-list small mb-3">
+                  Select a learner to see support-oriented suggestions.
+                </div>
+
+                <!-- Question Answers / Submissions -->
+                <div class="mb-2 fw-bold small text-muted">QUESTION ANSWERS & SUBMISSIONS</div>
+                <div id="teacherStudentSubmissionsList" class="teacher-submissions-list small">
+                  Select a learner to see their answers.
+                </div>
+              </div>
+            </div>
+
+            <!-- Class Roster Card -->
+            <div class="col-12 col-xl-5">
+              <div class="sidebar-right-card h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <div>
+                    <div class="section-kicker" style="margin-bottom: 0.15rem;">Class Roster</div>
+                    <h2 class="h5 mb-0 fw-bold">Active Students</h2>
+                  </div>
+                  <span class="badge-custom opened" style="font-size: 0.65rem;">Click to select</span>
+                </div>
+
+                <!-- Roster Search & Filter tools -->
+                <div class="roster-search-box">
+                  <input type="text" id="rosterSearchInput" class="roster-search-input" placeholder="Search students..."
+                    oninput="filterRoster()">
+                  <button type="button" class="roster-filter-btn" onclick="filterRoster()"
+                    title="Trigger search">🔍</button>
+                </div>
+
+                <!-- Roster Scroll list container -->
+                <div id="teacherStudentRoster" class="roster-list-scroll">
+                  <div class="text-center py-3 text-muted small">Loading class list...</div>
+                </div>
+
+                <!-- View all roster placeholder button -->
+                <a href="#teacher-progress" class="roster-view-all-btn">View All Students ➔</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Settings Section (Tab Content) -->
+        <section class="insights-panel" id="teacher-settings" style="display: none;">
+          <div class="card border-0 shadow-sm rounded-4 p-4 text-start">
+            <h2 class="h5 fw-bold mb-3">Settings</h2>
+            <p class="text-muted small">Configure dashboard preferences and data retention policies.</p>
+            <hr />
+            <div class="mb-3">
+              <label class="form-label fw-semibold">Refresh Rate</label>
+              <select class="form-select form-select-sm" style="max-width: 250px;">
+                <option>Real-time (1 second)</option>
+                <option>Every 5 seconds</option>
+                <option>Every 10 seconds</option>
+              </select>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="settingsAutoRefresh" checked>
+              <label class="form-check-label small mb-0" for="settingsAutoRefresh">Auto refresh charts when database
+                updates</label>
+            </div>
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" role="switch" id="settingsNotifications" checked>
+              <label class="form-check-label small mb-0" for="settingsNotifications">Enable real-time ethical alerts for
+                support cues</label>
+            </div>
+            <button class="btn btn-primary btn-sm px-3 align-self-start"
+              onclick="alert('Settings saved successfully!');">Save Settings</button>
+          </div>
+        </section>
+
+        <!-- Notification Toast Section -->
+        <section id="messageSection" class="mt-3">
+          <div id="appMessage" class="alert d-none mb-0" role="alert"></div>
+        </section>
+
+        <!-- Preview Modal -->
+        <div class="modal fade" id="previewMaterialModal" tabindex="-1" aria-labelledby="previewMaterialModalLabel"
+          aria-hidden="true">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="previewMaterialModalLabel">Material Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body" id="previewMaterialModalBody">
+                <div class="text-center py-4">Select a material to preview.</div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submissions Modal -->
+        <div class="modal fade" id="submissionsModal" tabindex="-1" aria-labelledby="submissionsModalLabel"
+          aria-hidden="true">
+          <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="submissionsModalLabel">Student Submissions</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+              </div>
+              <div class="modal-body">
+                <div class="table-responsive">
+                  <table class="table align-middle table-hover">
+                    <thead>
+                      <tr>
+                        <th>Student</th>
+                        <th>Email</th>
+                        <th>Submitted At</th>
+                        <th>Answer / Submission</th>
+                        <th>Status / Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="submissionsModalTableBody">
+                      <tr>
+                        <td colspan="5" class="text-center text-muted">No submissions found.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Navigation state synchronization script -->
+  <script>
+    function syncNavigation() {
+      const hash = window.location.hash || '#teacher-overview';
+
+      // Update sidebar links
+      document.querySelectorAll('.sidebar-link').forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === hash);
+      });
+
+      // Update horizontal tab buttons
+      document.querySelectorAll('.content-tab-btn').forEach(tab => {
+        tab.classList.toggle('active', tab.getAttribute('href') === hash);
+      });
+
+      // Get elements
+      const overviewEl = document.getElementById('teacher-overview');
+      const emotionEl = document.getElementById('teacher-emotion');
+      const progressEl = document.getElementById('teacher-progress');
+      const studentReportEl = document.getElementById('teacher-student-report');
+      const materialsEl = document.getElementById('teacher-materials');
+      const settingsEl = document.getElementById('teacher-settings');
+
+      // Helper to show/hide
+      const show = (el) => { if (el) el.style.display = ''; };
+      const hide = (el) => { if (el) el.style.display = 'none'; };
+
+      // Hide all first
+      hide(overviewEl);
+      hide(emotionEl);
+      hide(progressEl);
+      hide(studentReportEl);
+      hide(materialsEl);
+      hide(settingsEl);
+
+      if (hash === '#teacher-overview') {
+        show(overviewEl);
+        show(emotionEl);
+        show(progressEl);
+      } else if (hash === '#teacher-emotion') {
+        show(emotionEl);
+        // resize plotly chart
+        const sc = document.getElementById('teacherClassScatter');
+        if (sc && typeof Plotly !== 'undefined' && Plotly.Plots && Plotly.Plots.resize) {
+          setTimeout(() => {
+            try { Plotly.Plots.resize(sc); } catch (_) { }
+          }, 50);
+        }
+      } else if (hash === '#teacher-progress') {
+        show(progressEl);
+      } else if (hash === '#teacher-student-report') {
+        show(studentReportEl);
+      } else if (hash === '#teacher-materials') {
+        show(materialsEl);
+      } else if (hash === '#teacher-settings') {
+        show(settingsEl);
+      }
+    }
+    window.addEventListener('hashchange', syncNavigation);
+    window.addEventListener('load', syncNavigation);
+
+    // Collapsible panel chevron switcher helper
+    document.addEventListener('DOMContentLoaded', () => {
+      const collapseEl = document.getElementById('materialsCollapse');
+      if (collapseEl) {
+        collapseEl.addEventListener('show.bs.collapse', () => {
+          const chevron = document.getElementById('collapseChevron');
+          if (chevron) chevron.textContent = '▲';
+        });
+        collapseEl.addEventListener('hide.bs.collapse', () => {
+          const chevron = document.getElementById('collapseChevron');
+          if (chevron) chevron.textContent = '▼';
+        });
+      }
+    });
+
+    // Next / Previous student pagination helper
+    async function selectPrevStudent() {
+      if (typeof teacherDashboardData === 'undefined' || !teacherDashboardData || !teacherDashboardData.students || !teacherDashboardData.students.length) return;
+      const list = teacherDashboardData.students;
+      let idx = list.findIndex(s => s.id === teacherSelectedStudentId);
+      if (idx === -1) idx = 0;
+      const prevIdx = (idx - 1 + list.length) % list.length;
+      const prevStudent = list[prevIdx];
+      teacherSelectedStudentId = prevStudent.id;
+      const studentFilter = document.getElementById("teacherStudentFilter");
+      if (studentFilter) {
+        studentFilter.value = String(prevStudent.id);
+      }
+      await teacherLoadStudentReport(prevStudent.id);
+      updateReportAvatar(prevStudent.name);
+    }
+
+    async function selectNextStudent() {
+      if (typeof teacherDashboardData === 'undefined' || !teacherDashboardData || !teacherDashboardData.students || !teacherDashboardData.students.length) return;
+      const list = teacherDashboardData.students;
+      let idx = list.findIndex(s => s.id === teacherSelectedStudentId);
+      if (idx === -1) idx = 0;
+      const nextIdx = (idx + 1) % list.length;
+      const nextStudent = list[nextIdx];
+      teacherSelectedStudentId = nextStudent.id;
+      const studentFilter = document.getElementById("teacherStudentFilter");
+      if (studentFilter) {
+        studentFilter.value = String(nextStudent.id);
+      }
+      await teacherLoadStudentReport(nextStudent.id);
+      updateReportAvatar(nextStudent.name);
+    }
+
+    function updateReportAvatar(name) {
+      const avatar = document.getElementById('reportAvatar');
+      if (avatar && name) {
+        avatar.textContent = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      }
+    }
+
+    // Live roster client-side filtering helper
+    function filterRoster() {
+      const query = document.getElementById("rosterSearchInput").value.toLowerCase();
+      const items = document.querySelectorAll(".roster-item-custom");
+      items.forEach(item => {
+        const name = item.querySelector(".roster-item-name")?.textContent.toLowerCase() || "";
+        if (name.includes(query)) {
+          item.style.display = "";
+        } else {
+          item.style.display = "none";
+        }
+      });
+    }
+
+    // Hook callback on student report loads to dynamically sync avatar letters
+    const originalLoadReport = window.teacherLoadStudentReport;
+    window.teacherLoadStudentReport = async function (studentId, materialId = null) {
+      if (typeof teacherDashboardData !== 'undefined' && teacherDashboardData && teacherDashboardData.students) {
+        const student = teacherDashboardData.students.find(s => s.id === studentId);
+        if (student) {
+          updateReportAvatar(student.name);
+          // Also sync top insights header metrics values from selected student if filtering by student
+          const logsVal = document.getElementById('insightsLogsVal');
+          const valenceVal = document.getElementById('insightsValenceVal');
+          const arousalVal = document.getElementById('insightsArousalVal');
+          const flagsVal = document.getElementById('insightsFlagsVal');
+          if (logsVal) logsVal.textContent = String(student.assignment_count * 12 || 312); // demo scaling
+          if (valenceVal) {
+            const val = Number(student.valence_mean || 0);
+            valenceVal.textContent = (val >= 0 ? '+' : '') + val.toFixed(2);
+          }
+          if (arousalVal) arousalVal.textContent = Number(student.arousal_mean || 0).toFixed(2);
+          if (flagsVal) flagsVal.textContent = String(Array.isArray(student.support_flags) ? student.support_flags.filter(f => f !== 'steady').length : 0);
+        }
+      }
+      if (originalLoadReport) {
+        return originalLoadReport(studentId, materialId);
+      }
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+    crossorigin="anonymous"></script>
+  <script src="/static/app.js?v=20260713d"></script>
+</body>
+
+</html>
