@@ -1765,3 +1765,5 @@ form{display:grid;gap:16px}.field-grid{display:grid;grid-template-columns:1fr 1.
 
 /* 元の教師画面の進捗表・絞り込みを既存カード内に継承する。 */
 .teacher-progress-table-wrap{overflow-x:auto}.teacher-progress-table{width:100%;border-collapse:collapse;font-size:11px;text-align:left}.teacher-progress-table th,.teacher-progress-table td{padding:10px 8px;border-bottom:1px solid #e3e8f4}.teacher-progress-table th{color:#697899;white-space:nowrap}.teacher-progress-table button,.affect-report-toolbar button{border:1px solid #dce3f2;border-radius:10px;padding:9px 12px;color:#4255ff;background:#fff;font-weight:700;cursor:pointer}
+
+.va-monitor{margin:12px 18px;padding-top:12px;border-top:1px solid #e3e8f4;color:#627193;font-size:11px}.va-monitor svg{display:block;width:180px;max-width:100%;margin:8px auto}.va-monitor svg text{font-size:9px;fill:#627193}.va-monitor>div{display:flex;justify-content:space-between;gap:10px}.va-monitor b{color:#263553;margin-left:4px}.emotion-idle-details .va-monitor{margin:12px 0}

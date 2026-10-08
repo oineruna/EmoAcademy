@@ -10,6 +10,7 @@ export type LearningAffectSignal = {
   capturedAt: string;
   validFrames: number;
   sustained?: boolean;
+  valenceArousal?: { valence: number; arousal: number; model: string };
 };
 export type AffectSample = AffectScores & {
   id: string; user_id: string; dominant_affect: AffectKey;

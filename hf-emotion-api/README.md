@@ -22,7 +22,7 @@ DAiSEEモデルの出力は、以下の4指標として返します。
 - `confusion`: 混乱
 - `frustration`: 負荷・フラストレーション
 
-新しい`POST /predict/learning-affect`は`multipart/form-data`の`frames`として16個のJPEGを受け取り、`scores`、`dominant`、`confidence`、`model_version`、`quality`を返します。Valence/Arousalや一般感情への変換は行いません。顔を検出できたフレームが12枚未満の場合は422です。1フレームの上限は512KBです。
+新しい`POST /predict/learning-affect`は`multipart/form-data`の`frames`として16個のJPEGを受け取り、`scores`、`dominant`、`confidence`、`model_version`、`quality`を返します。DAiSEEからValence/Arousalへの変換は行いません。別の専用モデル`models/enet_b0_8_va_mtl.pt`で最後のフレームを推論し、`valence_arousal: {valence, arousal, model}`として併せて返します。専用モデルを利用できない場合はnullとなり、4指標の結果は保持します。顔を検出できたフレームが12枚未満の場合は422です。1フレームの上限は512KBです。
 
 ```json
 {"scores":{"boredom":18,"engagement":72,"confusion":24,"frustration":11},"dominant":"engagement","confidence":0.74,"model_version":"daisee-four-metrics-2026-10-08","quality":{"valid_frames":15,"total_frames":16,"warnings":[]}}

@@ -32,6 +32,8 @@ class FakeSession:
 
 class LearningAffectTests(unittest.TestCase):
     def setUp(self):
+        va = patch.object(api, "valence_arousal_prediction", return_value={"valence": 0.25, "arousal": 0.7, "model": "enet_b0_8_va_mtl.pt"})
+        va.start(); self.addCleanup(va.stop)
         self.client = TestClient(api.app)
         self.model = {"architecture": "daisee", "mode": "onnx", "session": FakeSession(), "path": "models/daisee_test.onnx"}
         self.face = {"x": 60, "y": 20, "width": 140, "height": 180, "source": "test"}
@@ -54,6 +56,18 @@ class LearningAffectTests(unittest.TestCase):
         self.assertGreater(sum(data["scores"].values()), 100)
         self.assertEqual(data["dominant"], "frustration")
         self.assertFalse({"valence", "arousal", "emotion_pct"} & data.keys())
+
+    def test_dedicated_valence_arousal_and_missing_model(self):
+        files = [("frames", (f"{i}.jpg", image_bytes(i), "image/jpeg")) for i in range(16)]
+        with patch.object(api, "get_model", return_value=self.model), patch.object(api, "detect_face_bbox", return_value=self.face):
+            data = self.client.post("/predict/learning-affect", files=files).json()
+            self.assertEqual(data["valence_arousal"], {"valence": 0.25, "arousal": 0.7, "model": "enet_b0_8_va_mtl.pt"})
+            with patch.object(api, "valence_arousal_prediction", side_effect=HTTPException(503, "missing")):
+                response = self.client.post("/predict/learning-affect", files=files)
+                self.assertEqual(response.status_code, 200)
+                self.assertIsNone(response.json()["valence_arousal"])
+                self.assertIsNotNone(response.json()["valence_arousal_error"])
+                self.assertEqual(response.json()["scores"], data["scores"])
 
     def test_missing_face_frames(self):
         with patch.object(api, "detect_face_bbox", side_effect=[self.face] * 11 + [None] * 5):

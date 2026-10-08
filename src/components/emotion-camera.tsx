@@ -139,7 +139,10 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
       const scores = averageScores(samples.current);
       const dominant = dominantAffect(scores);
       recentDominants.current = [...recentDominants.current.slice(-2), dominantAffect(data.scores)];
+      const va = data.valence_arousal;
+      const validVa = va && Number.isFinite(va.valence) && va.valence >= -1 && va.valence <= 1 && Number.isFinite(va.arousal) && va.arousal >= 0 && va.arousal <= 1;
       const next: StudyEmotionSignal = {
+        valenceArousal: validVa ? va : undefined,
         scores, dominant, confidence: typeof data.confidence === "number" ? data.confidence : undefined,
         source: "daisee", modelVersion: data.model_version, validFrames: data.quality.valid_frames,
         capturedAt: new Date().toISOString(),
@@ -221,6 +224,20 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
     <div className="learning-affect-current"><small>{ja ? "学習状態" : "Learning state"}</small><strong>{signal ? (signal.confidence === undefined || signal.confidence < 0.4 ? (ja ? "判定が不確か" : "Uncertain prediction") : affectLabels[language][signal.dominant]) : (ja ? "未計測" : "Not measured")}</strong></div>
     {signal && (signal.confidence === undefined || signal.confidence < 0.4) && <p className="emotion-monitor-status" role="status">{ja ? "予測が拮抗しています。50%は確率ではなく、4段階予測から算出した参考値です。" : "Predictions are close. Scores are estimated intensities, not probabilities."}</p>}
     <LearningAffectBars language={language} scores={signal?.scores ?? null} />
+    <ValenceArousalDisplay language={language} value={signal?.valenceArousal} measured={!!signal} />
     <details className="emotion-idle-details emotion-live-details"><summary>{ja ? "詳細を見る" : "View details"}<ChevronDown /></summary><div><small>{ja ? "学習中の教材" : "Material"}</small><strong>{materialTitle}</strong><p>{ja ? "直近5回の平均・各指標の強さ（0〜100）" : "Last 5 readings · independent intensity (0–100)"}</p>{signal && <p>{ja ? "モデル: DAiSEE / EfficientNet-B2 (.pt)・予測確信度" : "Model: DAiSEE / EfficientNet-B2 (.pt) · confidence"}: {signal.confidence === undefined ? "—" : `${Math.round(signal.confidence * 100)}%`}</p>}{signal && <p>{ja ? "有効フレーム" : "Valid frames"}: {signal.validFrames}/16 · {new Date(signal.capturedAt).toLocaleTimeString()}</p>}{saveFailed && <p role="status">{ja ? "保存を再試行中です。この画面を閉じずにお待ちください。" : "Retrying save. Keep this monitor open."}</p>}</div></details>
   </section>;
+}
+
+
+export function ValenceArousalDisplay({ language, value, measured }: { language: "ja" | "en"; value?: StudyEmotionSignal["valenceArousal"]; measured: boolean }) {
+  const ja = language === "ja";
+  return <div className="va-monitor"><small>{ja ? "気分・活性（専用モデル）" : "Valence / arousal (dedicated model)"}</small>
+    <svg viewBox="0 0 180 145" role="img" aria-label={ja ? "気分・活性の位置" : "Valence and arousal position"}>
+      <rect x="30" y="15" width="120" height="110" rx="14" fill="#f2f6ff" /><path d="M90 15v110M30 70h120" stroke="#c9d5eb" />
+      <text x="90" y="10" textAnchor="middle">{ja ? "活性 高" : "High arousal"}</text><text x="90" y="140" textAnchor="middle">{ja ? "活性 低" : "Low arousal"}</text><text x="5" y="73">−</text><text x="160" y="73">＋</text>
+      {value && <circle cx={90 + value.valence * 60} cy={125 - value.arousal * 110} r="5" fill="#4255ff" stroke="#fff" strokeWidth="2" />}
+    </svg><div><span>Valence <b>{value ? `${value.valence >= 0 ? "+" : ""}${value.valence.toFixed(2)}` : "—"}</b></span><span>Arousal <b>{value ? value.arousal.toFixed(2) : "—"}</b></span></div>
+    {measured && !value && <p role="status">{ja ? "気分・活性の推定は取得できませんでした。" : "Valence/arousal prediction unavailable."}</p>}
+  </div>;
 }

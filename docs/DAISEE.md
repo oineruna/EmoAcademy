@@ -32,3 +32,9 @@ DAiSEEの訓練・検証データで学習と評価を行った別のチェッ�
 - Supabase: `learning_affect_samples` と `learning_affect_report` を使用する。気分・活性・8感情への変換値は新APIでは返さない。
 - 起動: リポジトリ直下の `start-daisee.bat`。停止は `stop-daisee.bat`。
 - 公開サイト: 推論APIが別途公開され、`NEXT_PUBLIC_EMOTION_API_URL` に設定されている必要がある。Vercelへのサイト公開だけではDAiSEE推論は動かない。
+
+## 2026-10-08: 気分・活性の併記と公開API
+
+追加指定に合わせ、学生の感情モニターには4指標に加えてValence（−1〜+1）・Arousal（0〜1）を表示する。専用モデルは `hf-emotion-api/models/enet_b0_8_va_mtl.pt`。DAiSEEからの変換ではなく、最後の顔フレームに対する独立した推論結果。専用モデルの取得に失敗した場合は空欄と説明を表示し、4指標は保持する。現段階では気分・活性はモニターのリアルタイム表示のみで、Supabaseの4指標集計には混ぜない。
+
+公開APIの接続先は `https://emoacademy-emotion-api.hf.space`。Vercelのproduction・previewに `NEXT_PUBLIC_EMOTION_API_URL` を設定している。変更時はサイトを再ビルドする。

@@ -7,7 +7,7 @@ import {
   Globe, Home, Languages, LogOut, Menu, MessageCircle, Play,
   Plus, Search, Sparkles, Trash2, Upload, Users, X,
 } from "lucide-react";
-import { EmotionCamera, type StudyEmotionSignal } from "@/components/emotion-camera";
+import { EmotionCamera, ValenceArousalDisplay, type StudyEmotionSignal } from "@/components/emotion-camera";
 import { LearningAffectBars } from "@/components/learning-affect-bars";
 import { TeacherAffectReport } from "@/components/teacher-affect-report";
 import { affectLabels, supportIntensity, type AffectSample, type AffectReport } from "@/lib/learning-affect";
@@ -283,7 +283,7 @@ function ClosedEmotionMonitor({ language, onOpen, materialTitle, signal }: { lan
     <details className="emotion-idle-details">
       <summary>{text.details}<ChevronDown aria-hidden="true" /></summary>
       <div><small>{text.material}</small><strong>{materialTitle}</strong>
-        {signal ? <><small>{text.latest} · {new Date(signal.capturedAt).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small><LearningAffectBars scores={signal.scores} language={language} /></> : <p>{text.empty}</p>}
+        {signal ? <><small>{text.latest} · {new Date(signal.capturedAt).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small><LearningAffectBars scores={signal.scores} language={language} /><ValenceArousalDisplay language={language} value={signal.valenceArousal} measured /></> : <p>{text.empty}</p>}
       </div>
     </details>
   </section>;
