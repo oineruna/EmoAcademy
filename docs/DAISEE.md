@@ -33,8 +33,14 @@ DAiSEEの訓練・検証データで学習と評価を行った別のチェッ�
 - 起動: リポジトリ直下の `start-daisee.bat`。停止は `stop-daisee.bat`。
 - 公開サイト: 推論APIが別途公開され、`NEXT_PUBLIC_EMOTION_API_URL` に設定されている必要がある。Vercelへのサイト公開だけではDAiSEE推論は動かない。
 
-## 2026-10-08: 気分・活性の併記と公開API
+## 2026-10-08: DAiSEEの1モデルによる気分・活性
 
-追加指定に合わせ、学生の感情モニターには4指標に加えてValence（−1〜+1）・Arousal（0〜1）を表示する。専用モデルは `hf-emotion-api/models/enet_b0_8_va_mtl.pt`。DAiSEEからの変換ではなく、最後の顔フレームに対する独立した推論結果。専用モデルの取得に失敗した場合は空欄と説明を表示し、4指標は保持する。現段階では気分・活性はモニターのリアルタイム表示のみで、Supabaseの4指標集計には混ぜない。
+追加指定に合わせ、DAiSEEの4指標からValence（−1〜+1）・Arousal（0〜1）を算出する。`enet_b0_8_va_mtl.pt`の追加推論は行わない。
 
-公開APIの接続先は `https://emoacademy-emotion-api.hf.space`。Vercelのproduction・previewに `NEXT_PUBLIC_EMOTION_API_URL` を設定している。変更時はサイトを再ビルドする。
+退屈=B、関与=E、混乱=C、フラストレーション=F（各0〜100）として、Valence=`(E-(B+C+F)/3)/100`、Arousal=`(E+C+F+100-B)/400`。これは暫定的な派生指標で、独立した学習済みVA予測でも、心理尺度として校正した値でもない。4指標が50ならValence=0、Arousal=0.5となる。現在のモデル性能の問題は別途解決する必要がある。
+
+画面は平均化済みの4指標から計算する。Supabaseには従来どおり4指標を保存し、派生値を別の実測指標として集計しない。
+
+モデルの配置先は`hf-emotion-api/models/daisee_efficientnet_b2.pt`。同じEfficientNet-B2構造の`model_state_dict`を含むcheckpointで、入力16フレーム・224×224・出力`[1,4,4]`である必要がある。拡張子`.pt`なら何でも使えるわけではない。配置後はローカルなら`stop-daisee.bat`→`start-daisee.bat`。公開版ならモデルの再アップロード・API再起動が必要。
+
+公開APIの接続先は `https://emoacademy-emotion-api.hf.space`。Vercelのproduction・previewに `NEXT_PUBLIC_EMOTION_API_URL` を設定している。

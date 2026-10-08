@@ -32,8 +32,6 @@ class FakeSession:
 
 class LearningAffectTests(unittest.TestCase):
     def setUp(self):
-        va = patch.object(api, "valence_arousal_prediction", return_value={"valence": 0.25, "arousal": 0.7, "model": "enet_b0_8_va_mtl.pt"})
-        va.start(); self.addCleanup(va.stop)
         self.client = TestClient(api.app)
         self.model = {"architecture": "daisee", "mode": "onnx", "session": FakeSession(), "path": "models/daisee_test.onnx"}
         self.face = {"x": 60, "y": 20, "width": 140, "height": 180, "source": "test"}
@@ -57,17 +55,32 @@ class LearningAffectTests(unittest.TestCase):
         self.assertEqual(data["dominant"], "frustration")
         self.assertFalse({"valence", "arousal", "emotion_pct"} & data.keys())
 
-    def test_dedicated_valence_arousal_and_missing_model(self):
+    def test_derived_valence_arousal_uses_only_daisee(self):
         files = [("frames", (f"{i}.jpg", image_bytes(i), "image/jpeg")) for i in range(16)]
-        with patch.object(api, "get_model", return_value=self.model), patch.object(api, "detect_face_bbox", return_value=self.face):
-            data = self.client.post("/predict/learning-affect", files=files).json()
-            self.assertEqual(data["valence_arousal"], {"valence": 0.25, "arousal": 0.7, "model": "enet_b0_8_va_mtl.pt"})
-            with patch.object(api, "valence_arousal_prediction", side_effect=HTTPException(503, "missing")):
-                response = self.client.post("/predict/learning-affect", files=files)
-                self.assertEqual(response.status_code, 200)
-                self.assertIsNone(response.json()["valence_arousal"])
-                self.assertIsNotNone(response.json()["valence_arousal_error"])
-                self.assertEqual(response.json()["scores"], data["scores"])
+        with patch.object(api, "get_model", return_value=self.model), patch.object(api, "detect_face_bbox", return_value=self.face), patch.object(api, "load_model", side_effect=AssertionError("second model must not be loaded")):
+            response = self.client.post("/predict/learning-affect", files=files)
+        self.assertEqual(response.status_code, 200)
+        va = response.json()["valence_arousal"]
+        self.assertEqual(va["source"], "daisee-derived")
+        self.assertEqual(va["model"], "daisee_test.onnx")
+        self.assertLess(va["valence"], 0)
+        self.assertGreater(va["arousal"], 0.5)
+
+    def test_derived_axes_neutral_extremes_and_direction(self):
+        def values(b, e, c, f):
+            return api.derive_valence_arousal(dict(zip(api.DAISEE_KEYS, (b, e, c, f))), "daisee.pt")
+        self.assertEqual(values(50,50,50,50)["valence"], 0)
+        self.assertEqual(values(50,50,50,50)["arousal"], 0.5)
+        self.assertEqual(values(100,0,100,100)["valence"], -1)
+        self.assertEqual(values(0,100,0,0)["valence"], 1)
+        self.assertEqual(values(100,0,0,0)["arousal"], 0)
+        self.assertEqual(values(0,100,100,100)["arousal"], 1)
+        for axis in (0,2,3):
+            baseline = [20,40,20,20]; higher = baseline.copy(); higher[axis] += 20
+            low, high = values(*baseline), values(*higher)
+            self.assertLess(high["valence"], low["valence"])
+            if axis == 0: self.assertLess(high["arousal"], low["arousal"])
+            else: self.assertGreater(high["arousal"], low["arousal"])
 
     def test_missing_face_frames(self):
         with patch.object(api, "detect_face_bbox", side_effect=[self.face] * 11 + [None] * 5):

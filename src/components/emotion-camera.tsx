@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, ChevronDown, X } from "lucide-react";
 import { getActiveSupabaseClient } from "@/lib/supabase/client";
 import { LearningAffectBars } from "@/components/learning-affect-bars";
-import { averageScores, dominantAffect, validScores, type AffectScores, type LearningAffectSignal } from "@/lib/learning-affect";
+import { deriveValenceArousal, averageScores, dominantAffect, validScores, type AffectScores, type LearningAffectSignal } from "@/lib/learning-affect";
 
 export type StudyEmotionSignal = LearningAffectSignal;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -139,10 +139,8 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
       const scores = averageScores(samples.current);
       const dominant = dominantAffect(scores);
       recentDominants.current = [...recentDominants.current.slice(-2), dominantAffect(data.scores)];
-      const va = data.valence_arousal;
-      const validVa = va && Number.isFinite(va.valence) && va.valence >= -1 && va.valence <= 1 && Number.isFinite(va.arousal) && va.arousal >= 0 && va.arousal <= 1;
       const next: StudyEmotionSignal = {
-        valenceArousal: validVa ? va : undefined,
+        valenceArousal: deriveValenceArousal(scores, data.model_version),
         scores, dominant, confidence: typeof data.confidence === "number" ? data.confidence : undefined,
         source: "daisee", modelVersion: data.model_version, validFrames: data.quality.valid_frames,
         capturedAt: new Date().toISOString(),
@@ -223,7 +221,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
     </div>
     <LearningAffectBars language={language} scores={signal?.scores ?? null} />
     <ValenceArousalDisplay language={language} value={signal?.valenceArousal} measured={!!signal} />
-    <details className="emotion-idle-details emotion-live-details"><summary>{ja ? "詳細を見る" : "View details"}<ChevronDown /></summary><div><small>{ja ? "学習中の教材" : "Material"}</small><strong>{materialTitle}</strong><p>{ja ? "直近5回の平均・各指標の強さ（0〜100）" : "Last 5 readings · independent intensity (0–100)"}</p>{signal && <p>{ja ? "有効フレーム" : "Valid frames"}: {signal.validFrames}/16 · {new Date(signal.capturedAt).toLocaleTimeString()}</p>}{saveFailed && <p role="status">{ja ? "保存を再試行中です。この画面を閉じずにお待ちください。" : "Retrying save. Keep this monitor open."}</p>}</div></details>
+    <details className="emotion-idle-details emotion-live-details"><summary>{ja ? "詳細を見る" : "View details"}<ChevronDown /></summary><div><small>{ja ? "学習中の教材" : "Material"}</small><strong>{materialTitle}</strong><p>{ja ? "直近5回の平均・各指標の強さ（0〜100）" : "Last 5 readings · independent intensity (0–100)"}</p><p>{ja ? "気分・活性は4指標から算出した派生値です。" : "Valence/arousal are derived from the four learning-state scores."}</p>{signal && <p>{ja ? "有効フレーム" : "Valid frames"}: {signal.validFrames}/16 · {new Date(signal.capturedAt).toLocaleTimeString()}</p>}{saveFailed && <p role="status">{ja ? "保存を再試行中です。この画面を閉じずにお待ちください。" : "Retrying save. Keep this monitor open."}</p>}</div></details>
   </section>;
 }
 

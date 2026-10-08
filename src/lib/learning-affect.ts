@@ -51,3 +51,14 @@ export function dominantAffect(scores: AffectScores): AffectKey {
 export function supportIntensity(scores: AffectScores): number {
   return Math.round(Math.max(scores.boredom, scores.confusion, scores.frustration));
 }
+
+
+// DAiSEEの4指標から求める派生値。独立した感情測定値ではない。
+export function deriveValenceArousal(scores: AffectScores, model: string) {
+  const { boredom: b, engagement: e, confusion: c, frustration: f } = scores;
+  return {
+    valence: Math.max(-1, Math.min(1, (e - (b + c + f) / 3) / 100)),
+    arousal: Math.max(0, Math.min(1, (e + c + f + 100 - b) / 400)),
+    model,
+  };
+}

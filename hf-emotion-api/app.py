@@ -142,31 +142,16 @@ def load_model(path: str | None = None) -> dict[str, Any] | None:
     return None
 
 
-_va_model: dict[str, Any] | None = None
-
-
-def valence_arousal_prediction(data: bytes):
-    """既存の専用モデルで気分・活性を推定する。DAiSEE値から変換しない。"""
-    global _va_model
-    if _va_model is None:
-        path = Path(__file__).resolve().parent / "models" / "enet_b0_8_va_mtl.pt"
-        if not path.is_file():
-            raise HTTPException(status_code=503, detail="Valence/arousal checkpoint is not loaded")
-        _va_model = load_model(str(path))
-    frame = np.array(Image.open(BytesIO(data)).convert("RGB"))
-    bbox = detect_face_bbox(frame)
-    if bbox is None:
-        raise HTTPException(status_code=422, detail="No face for valence/arousal")
-    bbox = square_face_bbox(bbox, frame.shape[1], frame.shape[0])
-    x1, y1 = max(0, int(bbox["x"])), max(0, int(bbox["y"]))
-    x2, y2 = min(frame.shape[1], int(bbox["x"] + bbox["width"])), min(frame.shape[0], int(bbox["y"] + bbox["height"]))
-    face = frame[y1:y2, x1:x2]
-    if face.size == 0:
-        raise HTTPException(status_code=422, detail="Invalid valence/arousal face region")
-    result = model_predict(face, _va_model)
-    if not np.isfinite([result["valence"], result["arousal"]]).all():
-        raise HTTPException(status_code=503, detail="Invalid valence/arousal output")
-    return {"valence": result["valence"], "arousal": result["arousal"], "model": "enet_b0_8_va_mtl.pt"}
+def derive_valence_arousal(scores: dict[str, int], model_name: str):
+    """4指標から作る暫定的な派生指標。独立に学習・校正されたVAではない。"""
+    boredom, engagement, confusion, frustration = [scores[key] / 100.0 for key in DAISEE_KEYS]
+    valence = engagement - (boredom + confusion + frustration) / 3.0
+    arousal = (engagement + confusion + frustration + (1.0 - boredom)) / 4.0
+    return {
+        "valence": round(clamp(valence, -1.0, 1.0), 4),
+        "arousal": round(clamp(arousal, 0.0, 1.0), 4),
+        "model": model_name, "source": "daisee-derived", "method": "daisee-proxy-v1",
+    }
 
 
 def get_model() -> dict[str, Any] | None:
@@ -407,7 +392,7 @@ def health():
     result = root()
     model = get_model()
     ready = model is not None and model.get("architecture") == "daisee"
-    result.update(ok=ready, learning_affect_ready=ready, metrics=DAISEE_KEYS, frames=16)
+    result.update(ok=ready, learning_affect_ready=ready, metrics=DAISEE_KEYS, frames=16, valence_arousal_source="daisee-derived", valence_arousal_method="daisee-proxy-v1")
     if not ready:
         from fastapi.responses import JSONResponse
         return JSONResponse(status_code=503, content=result)
@@ -488,13 +473,8 @@ def predict_learning_affect(frames: list[UploadFile] = File(...)):
             raise HTTPException(status_code=503, detail="DAiSEE checkpoint is not loaded")
         sequence, quality = prepare_learning_sequence(images)
         result = learning_affect_prediction(sequence, model)
-        try:
-            va = valence_arousal_prediction(images[-1])
-            va_error = None
-        except Exception:
-            va = None
-            va_error = "Valence/arousal model unavailable for this frame"
-    return {**result, "quality": quality, "valence_arousal": va, "valence_arousal_error": va_error}
+        va = derive_valence_arousal(result["scores"], Path(model["path"]).name)
+    return {**result, "quality": quality, "valence_arousal": va, "valence_arousal_error": None}
 
 
 @app.post("/predict")

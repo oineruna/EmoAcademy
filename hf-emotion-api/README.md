@@ -22,7 +22,7 @@ DAiSEEモデルの出力は、以下の4指標として返します。
 - `confusion`: 混乱
 - `frustration`: 負荷・フラストレーション
 
-新しい`POST /predict/learning-affect`は`multipart/form-data`の`frames`として16個のJPEGを受け取り、`scores`、`dominant`、`confidence`、`model_version`、`quality`を返します。DAiSEEからValence/Arousalへの変換は行いません。別の専用モデル`models/enet_b0_8_va_mtl.pt`で最後のフレームを推論し、`valence_arousal: {valence, arousal, model}`として併せて返します。専用モデルを利用できない場合はnullとなり、4指標の結果は保持します。顔を検出できたフレームが12枚未満の場合は422です。1フレームの上限は512KBです。
+新しい`POST /predict/learning-affect`は`multipart/form-data`の`frames`として16個のJPEGを受け取り、`scores`、`dominant`、`confidence`、`model_version`、`quality`を返します。DAiSEEの4指標から`valence_arousal: {valence, arousal, model, source, method}`も算出します。ENetの追加推論は行いません。気分・活性は暫定ルールによる派生値で、独立して学習・校正した感情指標ではありません。顔を検出できたフレームが12枚未満の場合は422です。1フレームの上限は512KBです。
 
 ```json
 {"scores":{"boredom":18,"engagement":72,"confusion":24,"frustration":11},"dominant":"engagement","confidence":0.74,"model_version":"daisee-four-metrics-2026-10-08","quality":{"valid_frames":15,"total_frames":16,"warnings":[]}}
@@ -55,3 +55,15 @@ DAiSEEデータセット本体は大容量なので、このリポジトリに�
 3. `daisee_efficientnet_b2.pt` のような名前で保存する。
 4. `hf-emotion-api/models/` に置く。
 5. Hugging Face Spaceを再起動する。
+
+## 1モデルでの派生指標と差し替え
+
+B・E・C・Fをそれぞれ退屈・関与・混乱・フラストレーションの0〜100値とする。
+
+- Valence = `(E - (B+C+F)/3) / 100`（−1〜+1）
+- Arousal = `(E+C+F+100-B) / 400`（0〜1）
+- 方法ID: `daisee-proxy-v1`
+
+表示では直近5回の平均の4指標から同じ式を適用し、グラフとの関係を保つ。APIでは各推論の4指標から計算する。全指標が50ならValence=0、Arousal=0.5となる。元のDAiSEEモデルの性能不足を解消する処理ではない。
+
+差し替え先は`models/daisee_efficientnet_b2.pt`。現在のEfficientNet-B2・16フレーム・224×224・4指標×4段階のモデルと同じ構造の`model_state_dict`を含むcheckpointが必要。`.pt`という拡張子だけでは互換性を保証しない。ローカルでは`stop-daisee.bat`の後に`start-daisee.bat`で再読込する。公開APIでは重みを再アップロードして再起動する。ローカルに置いただけでは公開APIの重みは変わらない。
