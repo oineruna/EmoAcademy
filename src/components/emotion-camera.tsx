@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, ChevronDown, X } from "lucide-react";
 import { getActiveSupabaseClient } from "@/lib/supabase/client";
 import { LearningAffectBars } from "@/components/learning-affect-bars";
-import { affectLabels, averageScores, dominantAffect, validScores, type AffectScores, type LearningAffectSignal } from "@/lib/learning-affect";
+import { averageScores, dominantAffect, validScores, type AffectScores, type LearningAffectSignal } from "@/lib/learning-affect";
 
 export type StudyEmotionSignal = LearningAffectSignal;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
