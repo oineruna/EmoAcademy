@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 import os
 import time
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -35,12 +36,13 @@ except Exception:  # pragma: no cover
     timm = None
 
 
-APP_VERSION = "emotion-api-2026-07-09"
-MODEL_DIR = Path("models")
+APP_VERSION = "daisee-four-metrics-2026-10-08"
+MODEL_DIR = Path(__file__).resolve().parent / "models"
 MODEL_PATH = os.getenv("MODEL_PATH") or os.getenv("ONNX_MODEL_PATH")
 EMOTION_KEYS = ["anger", "contempt", "disgust", "fear", "happiness", "neutral", "sadness", "surprise"]
 DAISEE_KEYS = ["boredom", "engagement", "confusion", "frustration"]
 DAISEE_NUM_FRAMES = int(os.getenv("DAISEE_NUM_FRAMES", "16"))
+_inference_lock = threading.Lock()
 
 app = FastAPI(title="EmoAcademy Emotion API", version=APP_VERSION)
 app.add_middleware(
@@ -120,7 +122,8 @@ def load_model() -> dict[str, Any] | None:
         if ort is None:
             raise RuntimeError("onnxruntime is not available")
         session = ort.InferenceSession(path, providers=["CPUExecutionProvider"])
-        return {"mode": "onnx", "session": session, "path": path, "loaded_at": time.time()}
+        architecture = "daisee" if len(session.get_inputs()[0].shape) == 5 else "enet"
+        return {"mode": "onnx", "session": session, "path": path, "loaded_at": time.time(), "architecture": architecture}
     if path.lower().endswith((".pt", ".pth")):
         if torch is None:
             raise RuntimeError("PyTorch is not available")
@@ -349,7 +352,7 @@ def model_predict(face_img: np.ndarray, model: dict[str, Any]):
         with torch.no_grad():
             tensor = torch.from_numpy(arr).float()
             if model.get("architecture") == "daisee":
-                tensor = tensor.unsqueeze(1).repeat(1, DAISEE_NUM_FRAMES, 1, 1, 1)
+                raise HTTPException(status_code=422, detail="DAiSEE requires 16 frames at /predict/learning-affect")
             out = model["network"](tensor)
             if isinstance(out, (list, tuple)):
                 out = out[0]
@@ -374,7 +377,91 @@ def root():
 
 @app.get("/health")
 def health():
-    return root()
+    result = root()
+    model = get_model()
+    ready = model is not None and model.get("architecture") == "daisee"
+    result.update(ok=ready, learning_affect_ready=ready, metrics=DAISEE_KEYS, frames=16)
+    if not ready:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=503, content=result)
+    return result
+
+
+def prepare_learning_sequence(images: list[bytes]):
+    """時系列を維持し、欠損位置だけを最寄りの有効フレームで補う。"""
+    processed: dict[int, np.ndarray] = {}
+    warnings: set[str] = set()
+    for index, data in enumerate(images):
+        try:
+            image = Image.open(BytesIO(data))
+            if image.width * image.height > 8_000_000:
+                raise HTTPException(status_code=413, detail="Frame dimensions too large")
+            image = image.convert("RGB")
+            frame = np.array(image)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid image at frame {index}") from exc
+        bbox = detect_face_bbox(frame)
+        if bbox is None:
+            continue
+        bbox = square_face_bbox(bbox, image.width, image.height)
+        x, y, width, height = (bbox[k] for k in ("x", "y", "width", "height"))
+        face = frame[y:y + height, x:x + width]
+        if not face.size:
+            continue
+        quality = evaluate_capture_quality(frame, face, bbox)
+        warnings.update(quality["warnings"])
+        # 学習データと同じImageNet正規化。画像はリクエスト内だけで扱う。
+        resized = np.array(Image.fromarray(face).resize((224, 224))).astype(np.float32) / 255.0
+        normalized = (resized - np.array([0.485, 0.456, 0.406], dtype=np.float32)) / np.array([0.229, 0.224, 0.225], dtype=np.float32)
+        processed[index] = normalized.transpose(2, 0, 1)
+    if len(processed) < 12:
+        raise HTTPException(status_code=422, detail={"message": "Insufficient valid face frames", "valid_frames": len(processed), "total_frames": 16})
+    sequence = np.stack([processed[min(processed, key=lambda valid: abs(valid - index))] for index in range(16)])[None, ...]
+    return sequence, {"valid_frames": len(processed), "total_frames": 16, "warnings": sorted(warnings)}
+
+
+def learning_affect_prediction(sequence: np.ndarray, model: dict[str, Any]):
+    if model.get("architecture") != "daisee":
+        raise HTTPException(status_code=503, detail="DAiSEE checkpoint is not loaded")
+    if model["mode"] == "torch":
+        with torch.inference_mode():
+            logits = model["network"](torch.from_numpy(sequence).float()).detach().cpu().numpy()
+    else:
+        session = model["session"]
+        logits = session.run(None, {session.get_inputs()[0].name: sequence})[0]
+    logits = np.asarray(logits)
+    if logits.shape != (1, 4, 4) or not np.isfinite(logits).all():
+        raise HTTPException(status_code=503, detail="Invalid DAiSEE model output")
+    probabilities = np.stack([softmax(row) for row in logits[0]])
+    strengths = probabilities @ np.arange(4, dtype=np.float32) / 3.0 * 100.0
+    scores = {key: int(round(float(strengths[index]))) for index, key in enumerate(DAISEE_KEYS)}
+    return {
+        "scores": scores,
+        "dominant": max(scores, key=scores.get),
+        "confidence": round(float(probabilities.max(axis=1).mean()), 4),
+        "model_version": APP_VERSION,
+    }
+
+
+@app.post("/predict/learning-affect")
+def predict_learning_affect(frames: list[UploadFile] = File(...)):
+    if len(frames) != 16:
+        raise HTTPException(status_code=422, detail="Exactly 16 frames required")
+    images = []
+    for frame in frames:
+        data = frame.file.read(512_001)
+        if len(data) > 512_000:
+            raise HTTPException(status_code=413, detail="Frame exceeds 512 KB")
+        images.append(data)
+    with _inference_lock:
+        model = get_model()
+        if model is None or model.get("architecture") != "daisee":
+            raise HTTPException(status_code=503, detail="DAiSEE checkpoint is not loaded")
+        sequence, quality = prepare_learning_sequence(images)
+        result = learning_affect_prediction(sequence, model)
+    return {**result, "quality": quality}
 
 
 @app.post("/predict")

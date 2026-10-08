@@ -36,6 +36,9 @@ yarn-error.log*
 .codex-logs/
 .playwright-cli/
 supabase/.temp/
+**/.venv-daisee/
+.local-daisee/
+**/__pycache__/
 
 # local datasets / training artifacts
 DAiSEE/

@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Image from "next/image";
 import {
   ArrowRight, BarChart3, BookOpen, BookText, Calculator, Camera, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, FileText, FlaskConical, Folder,
@@ -8,6 +8,9 @@ import {
   Plus, Search, Sparkles, Trash2, Upload, Users, X,
 } from "lucide-react";
 import { EmotionCamera, type StudyEmotionSignal } from "@/components/emotion-camera";
+import { LearningAffectBars } from "@/components/learning-affect-bars";
+import { TeacherAffectReport } from "@/components/teacher-affect-report";
+import { affectLabels, supportIntensity, type AffectSample, type AffectReport } from "@/lib/learning-affect";
 import { getActiveSupabaseClient } from "@/lib/supabase/client";
 
 type Language = "ja" | "en";
@@ -61,17 +64,7 @@ type QaThread = {
   status: "open" | "answered" | "closed";
   created_at: string;
 };
-type EmotionSampleRecord = {
-  id: string;
-  user_id: string;
-  valence: number;
-  arousal: number;
-  dominant_emotion: string | null;
-  confidence: number | null;
-  source: string;
-  model_version: string | null;
-  captured_at: string;
-};
+type EmotionSampleRecord = AffectSample;
 type ProfileRecord = { id: string; display_name: string | null; role: string | null };
 type LoadProfile = {
   tone: "steady" | "warmup" | "tired" | "overload" | "high";
@@ -186,49 +179,23 @@ function LanguageSwitch({ language, setLanguage }: { language: Language; setLang
 }
 
 function getLoadProfile(signal: StudyEmotionSignal | null, language: Language): LoadProfile {
-  const valence = signal?.valence ?? 0.18;
-  const arousal = signal?.arousal ?? 0.46;
-  const load = getLoadFromValues(valence, arousal);
-  if (valence < -0.2 && arousal > 0.62) {
-    return language === "ja"
-      ? { tone: "overload", load, label: "負荷が高め", detail: "表情と活性が少し張っています。問題数を減らして、1問ずつ進めましょう。", primaryAction: "集中モードにする", secondaryAction: "先生に質問する" }
-      : { tone: "overload", load, label: "High load", detail: "Your signal looks tense. Reduce the screen to one task and move one question at a time.", primaryAction: "Use focus mode", secondaryAction: "Ask teacher" };
-  }
-  if (arousal > 0.74) {
-    return language === "ja"
-      ? { tone: "high", load, label: "活性が高め", detail: "勢いはありますが、急ぎすぎるとミスが増えます。短い確認を挟むのがおすすめです。", primaryAction: "確認ステップを表示", secondaryAction: "ペースを落とす" }
-      : { tone: "high", load, label: "High energy", detail: "Good momentum, but a quick check can prevent careless mistakes.", primaryAction: "Show check step", secondaryAction: "Slow pace" };
-  }
-  if (valence < -0.18 && arousal < 0.46) {
-    return language === "ja"
-      ? { tone: "tired", load, label: "疲れ気味", detail: "気分が少し下がっています。説明を短くして、答えやすい復習から始めましょう。", primaryAction: "復習から始める", secondaryAction: "小休憩" }
-      : { tone: "tired", load, label: "Low mood", detail: "The signal looks a little low. Start with a shorter review task.", primaryAction: "Start with review", secondaryAction: "Short break" };
-  }
-  if (arousal < 0.32) {
-    return language === "ja"
-      ? { tone: "warmup", load, label: "ウォームアップ", detail: "活性が低めです。短いカードで手を動かしてから本題に入りましょう。", primaryAction: "短いカードを出す", secondaryAction: "音読する" }
-      : { tone: "warmup", load, label: "Warm-up", detail: "Energy is low. A short card activity can ease you into the session.", primaryAction: "Show short cards", secondaryAction: "Read aloud" };
-  }
-  return language === "ja"
-    ? { tone: "steady", load, label: "安定した集中", detail: "今は画面を増やしすぎず、この教材を続けるのがよさそうです。", primaryAction: "このまま続ける", secondaryAction: "負荷を下げる" }
-    : { tone: "steady", load, label: "Steady focus", detail: "Keep the screen calm and continue this activity.", primaryAction: "Continue", secondaryAction: "Reduce load" };
+  const ja = language === "ja";
+  const fresh = signal && Date.now() - new Date(signal.capturedAt).getTime() < 60000;
+  const load = fresh ? supportIntensity(signal.scores) : 0;
+  const pending: LoadProfile = { tone: "steady", load, label: ja ? "計測待ち" : "Waiting for readings", detail: ja ? "計測を開始すると、学習状態に応じた提案が表示されます。" : "Start measuring to see learning support suggestions.", primaryAction: ja ? "学習を続ける" : "Continue", secondaryAction: ja ? "質問する" : "Ask a question" };
+  if (!fresh || !signal.sustained) return pending;
+  if (signal.dominant === "frustration") return { ...pending, tone: "overload", label: ja ? "短い休憩を提案" : "Try a short break", detail: ja ? "フラストレーションが続いています。少し休んでから再開しましょう。" : "Frustration has persisted. Take a short break.", primaryAction: ja ? "課題を分ける" : "Split task" };
+  if (signal.dominant === "confusion") return { ...pending, tone: "high", label: ja ? "説明をもう一度確認" : "Review the explanation", detail: ja ? "混乱の傾向が続いています。例題を確認して、1問ずつ進めましょう。" : "Confusion has persisted. Review an example and proceed one step at a time." };
+  if (signal.dominant === "boredom") return { ...pending, tone: "warmup", label: ja ? "短い課題から始める" : "Try a shorter task", detail: ja ? "退屈の傾向が続いています。課題を短い単位に分けて進めましょう。" : "Boredom has persisted. Try smaller task units." };
+  return { ...pending, label: ja ? "集中・関与が継続" : "Sustained engagement", detail: ja ? "現在の教材を続けましょう。" : "Continue the current material." };
 }
 
-function getLoadFromValues(valence: number, arousal: number) {
-  return Math.round(Math.min(1, Math.max(0, arousal * 0.62 + Math.max(-valence, 0) * 0.5)) * 100);
-}
-
-function getSupportAdvice(load: number, valence: number, arousal: number, language: Language) {
-  if (load >= 68 || (valence < -0.22 && arousal > 0.58)) {
-    return language === "ja" ? "分割課題 + 声かけ" : "Split task + check in";
-  }
-  if (arousal < 0.34) {
-    return language === "ja" ? "短い導入" : "Short warm-up";
-  }
-  if (arousal > 0.72) {
-    return language === "ja" ? "確認ステップ" : "Check step";
-  }
-  return language === "ja" ? "通常継続" : "Continue";
+function getSupportAdvice(sample: AffectSample, language: Language) {
+  const ja = language === "ja";
+  if (sample.frustration >= 60) return ja ? "休憩を検討" : "Consider a break";
+  if (sample.confusion >= 60) return ja ? "説明を確認" : "Review explanation";
+  if (sample.boredom >= 60) return ja ? "課題を分割" : "Split task";
+  return ja ? "継続して観察" : "Continue observing";
 }
 
 function supportMessage(action: SupportAction, language: Language) {
@@ -297,11 +264,11 @@ function ClosedEmotionMonitor({ language, onOpen, materialTitle, signal }: { lan
   const t = ui[language];
   const text = language === "ja" ? {
     title: "感情モニター", idle: "未計測", stopped: "停止中", hint: "学習中の状態をここに表示",
-    details: "詳細を見る", material: "学習中の教材", empty: "計測を開始すると、表情・気分・活性を確認できます。",
+    details: "詳細を見る", material: "学習中の教材", empty: "計測を開始すると、4つの学習状態を確認できます。",
     latest: "前回の計測", mood: "気分", energy: "活性",
   } : {
     title: "Emotion monitor", idle: "Not measured", stopped: "Stopped", hint: "Your learning state appears here",
-    details: "View details", material: "Session material", empty: "Start measuring to see expression, mood and energy.",
+    details: "View details", material: "Session material", empty: "Start measuring to see four learning states.",
     latest: "Last measurement", mood: "Mood", energy: "Energy",
   };
   return <section className="emotion-dock emotion-dock-preview emotion-monitor-card is-idle" aria-label={text.title}>
@@ -315,7 +282,7 @@ function ClosedEmotionMonitor({ language, onOpen, materialTitle, signal }: { lan
     <details className="emotion-idle-details">
       <summary>{text.details}<ChevronDown aria-hidden="true" /></summary>
       <div><small>{text.material}</small><strong>{materialTitle}</strong>
-        {signal ? <><small>{text.latest} · {new Date(signal.capturedAt).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small><p>{text.mood} {signal.valence.toFixed(2)} · {text.energy} {signal.arousal.toFixed(2)}</p></> : <p>{text.empty}</p>}
+        {signal ? <><small>{text.latest} · {new Date(signal.capturedAt).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small><LearningAffectBars scores={signal.scores} language={language} /></> : <p>{text.empty}</p>}
       </div>
     </details>
   </section>;
@@ -469,9 +436,10 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
     await result.client.from("support_actions").update({ outcome_status: outcome }).eq("id", target.id);
   }
 
-  function handleEmotionSignal(signal: StudyEmotionSignal) {
+  function handleEmotionSignal(signal: StudyEmotionSignal | null) {
     setEmotionSignal(signal);
-    const nextLoad = getLoadFromValues(signal.valence, signal.arousal);
+    if (!signal) return;
+    const nextLoad = supportIntensity(signal.scores);
     void updateLatestSupportOutcome(nextLoad, progress?.percent ?? 42);
   }
 
@@ -485,7 +453,7 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
         result.client.from("study_progress").select("material_id,status,percent,last_activity_title,last_studied_at").eq("user_id", result.session.user.id).order("last_studied_at", { ascending: false }).limit(1),
         result.client.from("study_groups").select("id,name,description").order("created_at", { ascending: false }),
         result.client.from("qa_threads").select("id,question,teacher_answer,status,created_at").order("created_at", { ascending: false }),
-        result.client.from("emotion_samples").select("valence,arousal,dominant_emotion,confidence,source,model_version,captured_at").eq("user_id", result.session.user.id).order("captured_at", { ascending: false }).limit(1),
+        result.client.from("learning_affect_samples").select("boredom,engagement,confusion,frustration,dominant_affect,confidence,model_version,valid_frames,captured_at").eq("user_id", result.session.user.id).order("captured_at", { ascending: false }).limit(1),
         result.client.from("support_actions").select("id,action_type,message,status,created_at,applied_at,load_at_apply,progress_at_apply,outcome_status").eq("student_id", result.session.user.id).neq("status", "dismissed").order("created_at", { ascending: false }).limit(4),
         result.client.from("material_submissions").select("id,material_id,student_id,answer,is_correct,teacher_feedback,submitted_at,graded_at").eq("student_id", result.session.user.id).order("submitted_at", { ascending: false }),
         result.client.from("study_sessions").select("id,material_id,started_at,ended_at").eq("student_id", result.session.user.id).is("ended_at", null).order("started_at", { ascending: false }).limit(1),
@@ -505,12 +473,12 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
       if (!emotionResult.error && emotionResult.data?.[0]) {
         const latest = emotionResult.data[0];
         setEmotionSignal({
-          valence: Number(latest.valence),
-          arousal: Number(latest.arousal),
-          dominant: String(latest.dominant_emotion || "neutral") as StudyEmotionSignal["dominant"],
+          scores: { boredom: latest.boredom, engagement: latest.engagement, confusion: latest.confusion, frustration: latest.frustration },
+          dominant: latest.dominant_affect,
+          validFrames: latest.valid_frames,
           confidence: latest.confidence ?? undefined,
-          source: latest.source || "emotion-api",
-          modelVersion: latest.model_version ?? undefined,
+          source: "daisee",
+          modelVersion: latest.model_version,
           capturedAt: latest.captured_at,
         });
       }
@@ -722,11 +690,11 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
       {activeNav === "material" && <section className="quiz-feed-section"><h2>{copy.materialDetail}</h2><article className="material-detail-card material-detail-card-standalone"><header><span><FileText /></span><div><small>{selectedMaterial.subject} · {selectedMaterial.type} · {selectedMaterial.duration} min</small><h3>{selectedMaterial.title}</h3></div></header><p>{language === "ja" ? selectedMaterial.descriptionJa : selectedMaterial.descriptionEn}</p>{selectedMaterial.externalUrl && <a href={selectedMaterial.externalUrl} target="_blank" rel="noreferrer">{copy.preview}</a>}<div className="material-detail-actions">{materials.map((material) => <button key={material.id} className={selectedMaterial.id === material.id ? "active" : ""} type="button" onClick={() => setSelectedMaterialId(material.id)}>{material.title}</button>)}</div><div className="jump-actions"><button type="button" onClick={() => markProgress(selectedMaterial)}><Play />{copy.continue}</button><button type="button" className={studySession ? "session-live" : ""} onClick={toggleStudySession}>{studySession ? copy.stopSession : copy.startSession}</button></div></article></section>}
       {activeNav === "submission" && <section className="quiz-feed-section"><h2>{copy.submission}</h2><form className="submission-card submission-card-standalone" onSubmit={submitMaterialAnswer}><textarea value={answerDraft} onChange={(event) => setAnswerDraft(event.target.value)} placeholder={selectedSubmission ? selectedSubmission.answer : copy.answerPlaceholder} rows={5} /><footer><div>{selectedSubmission ? <><strong>{copy.submitted}</strong><span>{selectedSubmission.teacher_feedback || copy.noFeedback}</span></> : <><strong>{copy.instruction}</strong><span>{language === "ja" ? selectedMaterial.descriptionJa : selectedMaterial.descriptionEn}</span></>}</div><button type="submit">{copy.submitAnswer}</button></footer>{selectedSubmission?.teacher_feedback && <p className="teacher-feedback"><b>{copy.teacherFeedback}</b>{selectedSubmission.teacher_feedback}</p>}</form></section>}
       {activeNav === "qa" && <section className="quiz-feed-section"><h2>{copy.answers}</h2><form className="qa-compose-form" onSubmit={submitQuestion}><textarea value={question} onChange={(event) => setQuestion(event.target.value)} placeholder={copy.askPlaceholder} rows={3} /><button type="submit"><MessageCircle />{copy.send}</button></form><div className="qa-history-list">{qaItems.map((item) => <article key={item.id}><span>Q</span><div><strong>{item.question}</strong><p>{item.teacher_answer ? `${language === "ja" ? "先生の回答" : "Teacher answer"}: ${item.teacher_answer}` : (language === "ja" ? "先生の回答待ちです。" : "Waiting for a teacher answer.")}</p><small>{new Date(item.created_at).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small></div></article>)}</div></section>}
-      {activeNav === "emotion" && <><section className="quiz-feed-section"><h2>{copy.emotionSession}</h2>{studySession ? <article className="session-note"><span>{copy.sessionActive}</span><strong>{selectedMaterial.title}</strong><p>{new Date(studySession.started_at).toLocaleTimeString(language === "ja" ? "ja-JP" : "en-US", { hour: "2-digit", minute: "2-digit" })} 〜</p></article> : <article className="material-detail-card emotion-session-card"><header><span><Sparkles /></span><div><small>{copy.signal}</small><h3>{loadProfile.label}</h3></div></header><p>{loadProfile.detail}</p><div className="jump-actions"><button type="button" onClick={toggleStudySession}>{copy.startSession}</button><button type="button" onClick={() => setCameraOpen(true)}>{copy.monitor}</button></div></article>}</section><section className="quiz-feed-section"><h2>{copy.adaptive}</h2><article className={`load-adapter-card ${loadProfile.tone}`}><div className="load-adapter-main"><span>{copy.signal}</span><h3>{loadProfile.label}</h3><p>{loadProfile.detail}</p><div className="load-actions"><button type="button" onClick={() => setFocusMode(true)}>{loadProfile.primaryAction}</button><button type="button" onClick={() => setActiveNav("qa")}>{loadProfile.secondaryAction}</button></div></div><div className="load-meter" aria-label={`${copy.load} ${loadProfile.load}%`}><strong>{loadProfile.load}%</strong><i><b style={{ height: `${loadProfile.load}%`, "--load": `${loadProfile.load}%` } as CSSProperties} /></i><small>{copy.source}: {emotionSignal?.source || "standby"}</small></div></article></section>{supportActions.length > 0 && <section className="quiz-feed-section"><h2>{copy.teacherSupport}</h2><div className="support-inbox-list">{supportActions.map((item) => <article key={item.id} className={`support-inbox-card ${item.status}`}><span>{item.action_type === "break" ? "休" : item.action_type === "split" ? "分" : "確"}</span><div><strong>{item.action_type === "break" ? copy.breakPrompt : item.action_type === "split" ? copy.splitPrompt : copy.checkPrompt}</strong><p>{item.message || supportMessage(item.action_type, language)}</p><small>{new Date(item.created_at).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small></div>{item.status === "pending" ? <button type="button" onClick={() => acknowledgeSupport(item)}>{copy.acknowledge}</button> : <em className="support-outcome-pill">{outcomeLabel(item.outcome_status, language)}</em>}</article>)}</div></section>}{focusMode && <section className="quiz-feed-section"><h2>{copy.focusOn}</h2><article className="focus-mode-card"><div><Sparkles /><h3>{copy.focusNote}</h3><ol><li>{copy.stepOne}</li><li>{copy.stepTwo}</li><li>{copy.stepThree}</li></ol></div><button type="button" onClick={() => setFocusMode(false)}>{copy.normal}</button></article></section>}</>}
+      {activeNav === "emotion" && <><section className="quiz-feed-section"><h2>{copy.emotionSession}</h2>{studySession ? <article className="session-note"><span>{copy.sessionActive}</span><strong>{selectedMaterial.title}</strong><p>{new Date(studySession.started_at).toLocaleTimeString(language === "ja" ? "ja-JP" : "en-US", { hour: "2-digit", minute: "2-digit" })} 〜</p></article> : <article className="material-detail-card emotion-session-card"><header><span><Sparkles /></span><div><small>{copy.signal}</small><h3>{loadProfile.label}</h3></div></header><p>{loadProfile.detail}</p><div className="jump-actions"><button type="button" onClick={toggleStudySession}>{copy.startSession}</button><button type="button" onClick={() => setCameraOpen(true)}>{copy.monitor}</button></div></article>}</section><section className="quiz-feed-section"><h2>{copy.adaptive}</h2><article className={`load-adapter-card ${loadProfile.tone}`}><div className="load-adapter-main"><span>{copy.signal}</span><h3>{loadProfile.label}</h3><p>{loadProfile.detail}</p><div className="load-actions"><button type="button" onClick={() => setFocusMode(true)}>{loadProfile.primaryAction}</button><button type="button" onClick={() => setActiveNav("qa")}>{loadProfile.secondaryAction}</button></div></div><div className="load-meter"><small>DAiSEE</small><small>{emotionSignal ? affectLabels[language][emotionSignal.dominant] : "—"}</small></div></article></section>{supportActions.length > 0 && <section className="quiz-feed-section"><h2>{copy.teacherSupport}</h2><div className="support-inbox-list">{supportActions.map((item) => <article key={item.id} className={`support-inbox-card ${item.status}`}><span>{item.action_type === "break" ? "休" : item.action_type === "split" ? "分" : "確"}</span><div><strong>{item.action_type === "break" ? copy.breakPrompt : item.action_type === "split" ? copy.splitPrompt : copy.checkPrompt}</strong><p>{item.message || supportMessage(item.action_type, language)}</p><small>{new Date(item.created_at).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small></div>{item.status === "pending" ? <button type="button" onClick={() => acknowledgeSupport(item)}>{copy.acknowledge}</button> : <em className="support-outcome-pill">{outcomeLabel(item.outcome_status, language)}</em>}</article>)}</div></section>}{focusMode && <section className="quiz-feed-section"><h2>{copy.focusOn}</h2><article className="focus-mode-card"><div><Sparkles /><h3>{copy.focusNote}</h3><ol><li>{copy.stepOne}</li><li>{copy.stepTwo}</li><li>{copy.stepThree}</li></ol></div><button type="button" onClick={() => setFocusMode(false)}>{copy.normal}</button></article></section>}</>}
     </div>
 
     <aside className="quiz-emotion-panel">
-      {cameraOpen ? <EmotionCamera language={language} materialTitle={selectedMaterial.title} autoStart onSignal={handleEmotionSignal} onClose={() => setCameraOpen(false)} /> : <ClosedEmotionMonitor language={language} onOpen={() => setCameraOpen(true)} materialTitle={selectedMaterial.title} signal={emotionSignal} />}
+      {cameraOpen ? <EmotionCamera key={`${selectedMaterial.id}:${studySession?.id || "none"}`} preview={preview} materialId={selectedMaterial.id} studySessionId={studySession?.id} language={language} materialTitle={selectedMaterial.title} autoStart onSignal={handleEmotionSignal} onClose={() => setCameraOpen(false)} /> : <ClosedEmotionMonitor language={language} onOpen={() => setCameraOpen(true)} materialTitle={selectedMaterial.title} signal={emotionSignal} />}
     </aside>
   </main>;
 }
@@ -736,7 +704,7 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
   const [materials, setMaterials] = useState<Material[]>(materialsSeed);
   const [questions, setQuestions] = useState<QaThread[]>(qaSeed);
   const [classProgress, setClassProgress] = useState<ProgressRecord[]>([]);
-  const [emotionSamples, setEmotionSamples] = useState<EmotionSampleRecord[]>([]);
+  const [affectReport, setAffectReport] = useState<AffectReport | null>(null);
   const [supportHistory, setSupportHistory] = useState<SupportActionRecord[]>([]);
   const [submissions, setSubmissions] = useState<MaterialSubmission[]>(submissionSeed);
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
@@ -756,11 +724,10 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
     async function load() {
       const result = await getActiveSupabaseClient();
       if (!active || !result) return;
-      const [materialResult, questionResult, progressResult, emotionResult, supportResult, profileResult, submissionResult] = await Promise.all([
+      const [materialResult, questionResult, progressResult, supportResult, profileResult, submissionResult] = await Promise.all([
         result.client.from("learning_materials").select("id,title,subject,material_type,duration_minutes,instruction,external_url").order("created_at", { ascending: false }),
         result.client.from("qa_threads").select("id,question,teacher_answer,status,created_at").order("created_at", { ascending: false }),
         result.client.from("study_progress").select("material_id,status,percent,last_activity_title,last_studied_at").order("last_studied_at", { ascending: false }).limit(6),
-        result.client.from("emotion_samples").select("id,user_id,valence,arousal,dominant_emotion,confidence,source,model_version,captured_at").order("captured_at", { ascending: false }).limit(8),
         result.client.from("support_actions").select("id,student_id,action_type,message,status,created_at,applied_at,load_at_apply,progress_at_apply,outcome_status").order("created_at", { ascending: false }).limit(8),
         result.client.from("profiles").select("id,display_name,role"),
         result.client.from("material_submissions").select("id,material_id,student_id,answer,is_correct,teacher_feedback,submitted_at,graded_at").order("submitted_at", { ascending: false }).limit(10),
@@ -769,7 +736,6 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
       if (!materialResult.error && materialResult.data?.length) setMaterials(materialResult.data.map(dbMaterialToMaterial));
       if (!questionResult.error && questionResult.data?.length) setQuestions(questionResult.data as QaThread[]);
       if (!progressResult.error && progressResult.data) setClassProgress(progressResult.data as ProgressRecord[]);
-      if (!emotionResult.error && emotionResult.data) setEmotionSamples(emotionResult.data as EmotionSampleRecord[]);
       if (!supportResult.error && supportResult.data) setSupportHistory(supportResult.data as SupportActionRecord[]);
       if (!profileResult.error && profileResult.data) setProfiles(profileResult.data as ProfileRecord[]);
       if (!submissionResult.error && submissionResult.data?.length) setSubmissions(submissionResult.data as MaterialSubmission[]);
@@ -841,14 +807,8 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
     if (error) setNotice(language === "ja" ? "提出へのフィードバックを保存できませんでした。" : "Could not save submission feedback.");
   }
 
-  const visibleEmotionSamplesRaw = emotionSamples.length ? emotionSamples : [
-    { id: "demo-e1", user_id: "student-a", valence: -0.28, arousal: 0.72, dominant_emotion: "fear", confidence: 0.76, source: "emotion-api", model_version: "demo", captured_at: new Date().toISOString() },
-    { id: "demo-e2", user_id: "student-b", valence: 0.18, arousal: 0.44, dominant_emotion: "neutral", confidence: 0.72, source: "browser", model_version: "demo", captured_at: new Date().toISOString() },
-    { id: "demo-e3", user_id: "student-c", valence: -0.12, arousal: 0.36, dominant_emotion: "sadness", confidence: 0.68, source: "emotion-api", model_version: "demo", captured_at: new Date().toISOString() },
-  ] satisfies EmotionSampleRecord[];
-  const visibleEmotionSamples = latestEmotionSamplesByUser(visibleEmotionSamplesRaw);
-  const loadAverage = Math.round(visibleEmotionSamples.reduce((sum, sample) => sum + getLoadFromValues(sample.valence, sample.arousal), 0) / Math.max(1, visibleEmotionSamples.length));
-  const highLoadCount = visibleEmotionSamples.filter((sample) => getLoadFromValues(sample.valence, sample.arousal) >= 60).length;
+  const visibleEmotionSamples = latestEmotionSamplesByUser(affectReport?.latest || []);
+  const highLoadCount = affectReport?.support_count || 0;
   const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
   const profileLabel = (userId: string | undefined, index: number) => {
     const profile = userId ? profileById.get(userId) : null;
@@ -857,8 +817,8 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
   const studentLabel = (sample: EmotionSampleRecord, index: number) => profileLabel(sample.user_id, index);
   const visibleSupportHistory = supportHistory.length ? supportHistory : supportHistorySeed;
   const teacherEmotionCopy = language === "ja"
-    ? { title: "学習負荷シグナル", summary: `${highLoadCount}人に支援サイン`, avg: "平均負荷", note: "生徒ごとの最新ログをもとに、声かけ・分割課題・休憩提案を判断します。", noData: "まだ実測ログがないためデモ表示です。" }
-    : { title: "Learning load signals", summary: `${highLoadCount} support signs`, avg: "Average load", note: "Latest per-student signals guide check-ins, split tasks, and break prompts.", noData: "Demo values are shown until live samples exist." };
+    ? { title: "学習状態の4指標", summary: `${highLoadCount}人に支援サイン`, avg: "平均負荷", note: "生徒ごとの最新ログをもとに、声かけ・分割課題・休憩提案を判断します。", noData: "まだ実測ログがないためデモ表示です。" }
+    : { title: "Four learning state metrics", summary: `${highLoadCount} support signs`, avg: "Average load", note: "Latest per-student signals guide check-ins, split tasks, and break prompts.", noData: "Demo values are shown until live samples exist." };
 
   const reportCopy = language === "ja"
     ? { report: "教師レポート", submissions: "提出確認", reviewed: "確認済み", waiting: "未確認", feedback: "フィードバック", noSubmissions: "まだ提出はありません。", overview: "概要", materials: "教材", questions: "質問回答", emotion: "感情ログ", students: "学生別レポート", noStudent: "まだ学生データはありません。", support: "支援提案", latestEmotion: "最新シグナル", activity: "学習活動" }
@@ -885,7 +845,7 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
     return {
       id,
       name: profileLabel(id, index),
-      load: latestEmotion ? getLoadFromValues(latestEmotion.valence, latestEmotion.arousal) : 0,
+      load: latestEmotion ? supportIntensity(latestEmotion) : 0,
       latestEmotion,
       submissions: studentSubmissions.length,
       support: studentSupports.length,
@@ -917,7 +877,7 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
       <article><small>MATERIALS</small><strong>{materials.length}</strong><span>{t.list}</span></article>
       <article><small>SUBMISSIONS</small><strong>{submissions.length}</strong><span>{reportCopy.submissions}</span></article>
       <article><small>QUESTIONS</small><strong>{questions.filter((item) => item.status === "open").length}</strong><span>{t.recent}</span></article>
-      <article><small>LOAD</small><strong>{loadAverage}%</strong><span>{teacherEmotionCopy.avg}</span></article>
+      <article><small>DAiSEE</small><strong>{visibleEmotionSamples.length}</strong><span>{language === "ja" ? "計測した学生" : "Measured students"}</span></article>
       </section>
     </div>
     <div className="teacher-grid">
@@ -946,9 +906,9 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
         {(classProgress.length ? classProgress : [{ last_activity_title: "Greetings & Introductions", percent: 72, status: "in_progress", material_id: null, last_studied_at: new Date().toISOString() }, { last_activity_title: "Conversation Practice", percent: 58, status: "in_progress", material_id: null, last_studied_at: new Date().toISOString() }]).map((progressItem, index) => <article key={`${progressItem.last_activity_title}-${index}`}><span>{index + 1}</span><div><strong>{progressItem.last_activity_title || "Learning activity"}</strong><i><b style={{ width: `${progressItem.percent}%` }} /></i></div><em>{progressItem.percent}%</em></article>)}
       </section>
       <section className="teacher-card emotion-insight-card" id="teacher-emotion-panel">
-        <header><div><small>EMOTION LOAD</small><h2>{teacherEmotionCopy.title}</h2></div><b>{loadAverage}%</b></header>
-        <div className="emotion-class-summary"><strong>{teacherEmotionCopy.summary}</strong><span>{teacherEmotionCopy.avg}: {loadAverage}%</span><p>{emotionSamples.length ? teacherEmotionCopy.note : teacherEmotionCopy.noData}</p></div>
-        <div className="emotion-student-list">{visibleEmotionSamples.map((sample, index) => { const load = getLoadFromValues(sample.valence, sample.arousal); const advice = getSupportAdvice(load, sample.valence, sample.arousal, language); const name = studentLabel(sample, index); return <article key={sample.id}><span>{index + 1}</span><div><strong>{name}</strong><small>{sample.dominant_emotion || "neutral"} · {sample.source} · {new Date(sample.captured_at).toLocaleTimeString(language === "ja" ? "ja-JP" : "en-US", { hour: "2-digit", minute: "2-digit" })}</small><i><b style={{ width: `${load}%` }} /></i><small className="emotion-advice">{advice}</small><div className="emotion-support-actions"><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "break")}>{t.breakPrompt}</button><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "split")}>{t.splitPrompt}</button><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "check")}>{t.checkPrompt}</button></div></div><em className={load >= 60 ? "high" : ""}>{load}%</em></article>; })}</div>
+        <header><div><small>DAiSEE</small><h2>{teacherEmotionCopy.title}</h2></div></header>
+        <TeacherAffectReport language={language} preview={preview} profiles={profiles} onReport={setAffectReport} />
+        <div className="emotion-student-list">{visibleEmotionSamples.map((sample, index) => { const advice = getSupportAdvice(sample, language); const name = studentLabel(sample, index); return <article key={sample.id}><span>{index + 1}</span><div><strong>{name}</strong><small>{language === "ja" ? "最新の計測" : "Latest reading"} · {new Date(sample.captured_at).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small><LearningAffectBars scores={sample} language={language} /><small className="emotion-advice">{advice}</small><div className="emotion-support-actions"><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "break")}>{t.breakPrompt}</button><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "split")}>{t.splitPrompt}</button><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "check")}>{t.checkPrompt}</button></div></div></article>; })}</div>
       </section>
       <section className="teacher-card submission-review-card" id="teacher-submissions-panel">
         <header><div><small>SUBMISSIONS</small><h2>{reportCopy.submissions}</h2></div><b>{submissions.length}</b></header>
@@ -960,7 +920,7 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
       </section>
       <section className="teacher-card student-report-detail-card" id="teacher-students-panel">
         <header><div><small>STUDENT REPORT</small><h2>{reportCopy.students}</h2></div><Users /></header>
-        {selectedStudent ? <><div className="student-report-selector">{studentReportRows.map((row) => <button key={row.id} type="button" className={selectedStudent.id === row.id ? "active" : ""} onClick={() => setSelectedStudentId(row.id)}>{row.name}</button>)}</div><article className="student-report-focus"><div><small>{reportCopy.activity}</small><strong>{selectedStudent.activity}</strong><i><b style={{ width: `${selectedStudent.progress}%` }} /></i><span>{selectedStudent.progress}%</span></div><div><small>{reportCopy.latestEmotion}</small><strong>{selectedStudent.latestEmotion?.dominant_emotion || "neutral"}</strong><i><b style={{ width: `${selectedStudent.load}%` }} /></i><span>{selectedStudent.load}%</span></div><div><small>{reportCopy.submissions}</small><strong>{selectedStudent.submissions}</strong><span>{reportCopy.reviewed}: {submissions.filter((item) => item.student_id === selectedStudent.id && item.teacher_feedback).length}</span></div><div><small>{reportCopy.support}</small><strong>{selectedStudent.support}</strong><span>{visibleSupportHistory.filter((item) => item.student_id === selectedStudent.id && item.status === "acknowledged").length} {reportCopy.reviewed}</span></div></article></> : <p>{reportCopy.noStudent}</p>}
+        {selectedStudent ? <><div className="student-report-selector">{studentReportRows.map((row) => <button key={row.id} type="button" className={selectedStudent.id === row.id ? "active" : ""} onClick={() => setSelectedStudentId(row.id)}>{row.name}</button>)}</div><article className="student-report-focus"><div><small>{reportCopy.activity}</small><strong>{selectedStudent.activity}</strong><i><b style={{ width: `${selectedStudent.progress}%` }} /></i><span>{selectedStudent.progress}%</span></div><div><small>{reportCopy.latestEmotion}</small><strong>{selectedStudent.latestEmotion ? affectLabels[language][selectedStudent.latestEmotion.dominant_affect] : "—"}</strong><LearningAffectBars scores={selectedStudent.latestEmotion || null} language={language} /></div><div><small>{reportCopy.submissions}</small><strong>{selectedStudent.submissions}</strong><span>{reportCopy.reviewed}: {submissions.filter((item) => item.student_id === selectedStudent.id && item.teacher_feedback).length}</span></div><div><small>{reportCopy.support}</small><strong>{selectedStudent.support}</strong><span>{visibleSupportHistory.filter((item) => item.student_id === selectedStudent.id && item.status === "acknowledged").length} {reportCopy.reviewed}</span></div></article></> : <p>{reportCopy.noStudent}</p>}
       </section>
     </div>
     </section>

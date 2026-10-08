@@ -1735,3 +1735,30 @@ form{display:grid;gap:16px}.field-grid{display:grid;grid-template-columns:1fr 1.
 .emotion-live-details .emotion-summary-card{margin:14px 0;padding:14px;border:1px solid #e4eaf5;border-radius:14px;background:#f8faff;box-shadow:none}
 .emotion-live-details .emotion-percent-list{margin:0;padding:12px 0;background:transparent;box-shadow:none}
 .quiz-emotion-panel .emotion-live-details .signal-timeline{margin:12px 0 0;padding:12px;border:1px solid #e4eaf5;border-radius:14px;background:#f8faff;box-shadow:none}
+/* 既存の配置は継承し、4指標カードの中身だけを調整する。 */
+.learning-affect-current{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 18px;color:#627193;font-size:11px}
+.learning-affect-current strong{color:#263553;font-size:13px}
+.learning-affect-bars>div{grid-template-columns:112px minmax(0,1fr) 34px;gap:8px;min-height:25px;font-size:11px}
+.learning-affect-bars>div>span{font-weight:700;color:#627193}
+.learning-affect-bars i b{min-width:0}
+.emotion-monitor-card>.learning-affect-bars{margin:12px 18px;padding:0;background:transparent;box-shadow:none}
+.affect-report-toolbar{display:flex;flex-wrap:wrap;align-items:end;gap:12px;margin:14px 0}
+.affect-report-toolbar label{display:grid;gap:6px;font-size:12px;font-weight:700}
+.affect-report-toolbar select,.affect-report-details input,.affect-report-details select{max-width:100%;padding:9px 12px;border:1px solid #dce3f2;border-radius:10px;background:#fff;color:#34405d;font:inherit}
+.affect-report-toolbar small,.affect-report-note{color:#697899;font-size:11px;line-height:1.6}
+.affect-average-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.affect-average-grid article{display:grid;gap:8px;padding:14px 10px;border:1px solid #e3e8f4;border-radius:14px;background:#f9fbff}
+.affect-average-grid small{color:#627193;font-size:10px;overflow-wrap:anywhere}
+.affect-average-grid strong{font-size:22px}
+.affect-report-details{border-top:1px solid #e3e8f4;margin-top:14px;padding-top:14px}
+.affect-report-details summary{cursor:pointer;color:#34405d;font-size:12px;font-weight:700}
+.affect-report-details form{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;font-size:12px}
+.affect-report-details button{border:1px solid #dce3f2;border-radius:10px;padding:9px 12px;color:#4255ff;background:#fff;font-weight:700;cursor:pointer}
+.affect-trend{margin-top:18px}.affect-trend svg{display:block;width:100%;height:auto;min-height:140px}.affect-trend text{font-size:11px;fill:#697899}
+.affect-trend-times{display:flex;justify-content:space-between;color:#697899;font-size:11px}
+.affect-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:10px;font-size:10px;color:#627193}.affect-legend span{display:flex;align-items:center;gap:5px}.affect-legend i{width:7px;height:7px;border-radius:50%}
+.affect-session-list{display:grid;gap:12px;margin-top:18px}.affect-session-list article{padding:12px;border:1px solid #e3e8f4;border-radius:12px}.affect-session-list article>strong{font-size:13px}.affect-session-list article>small{display:block;color:#697899;margin-top:5px;font-size:10px}
+.affect-session-list .learning-affect-bars,.emotion-student-list .learning-affect-bars{margin:8px 0;padding:0;background:transparent;box-shadow:none}
+.emotion-student-list>article{grid-template-columns:26px minmax(0,1fr)}
+.student-report-focus .learning-affect-bars{margin:8px 0;padding:0;background:transparent}.student-report-focus .learning-affect-bars>div{grid-template-columns:100px minmax(0,1fr) 30px;font-size:9px}
+@media(max-width:760px){.affect-average-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.affect-report-toolbar{align-items:start}.affect-report-details form>*{min-width:0}}

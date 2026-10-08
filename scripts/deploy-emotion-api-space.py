@@ -39,6 +39,7 @@ def main() -> None:
         folder_path=str(SPACE_DIR),
         path_in_repo=".",
         commit_message="Deploy EmoAcademy emotion API",
+        ignore_patterns=[".venv-daisee/**", "**/__pycache__/**", "test_*.py"],
     )
 
     print(f"Done: https://{args.space_id.replace('/', '-')}.hf.space")
