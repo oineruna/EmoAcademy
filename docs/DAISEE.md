@@ -1,83 +1,34 @@
-# DAiSEEデータセット利用メモ
+# DAiSEEモデルと表示の確認
 
-## 結論
+## 使用中のモデル
 
-EmoAcademyでは、DAiSEEを「学習中の状態を推定するためのモデル学習データ」として使う。
+- モデル: DAiSEE用 EfficientNet-B2（16フレームの特徴を平均し、4指標それぞれを4段階で予測）
+- 場所: `hf-emotion-api/models/daisee_efficientnet_b2.pt`
+- 拡張子: `.pt`（PyTorchのチェックポイント）
+- 読み込み処理: `hf-emotion-api/app.py` の `load_model()`
+- 推論API: `POST /predict/learning-affect`。16枚の異なる時刻のフレームを送信する。
+- ローカル確認: `http://127.0.0.1:7860/health` の `model_path` と `learning_affect_ready`。
 
-ただし、DAiSEEの動画データ本体はリポジトリ、Vercel、通常のアプリ配布物には入れない。データセットはローカルまたは学習用環境に置き、学習済みモデルだけをHugging Face Spaceの推論APIへ置く。
+## 50%付近になる理由
 
-## DAiSEEで扱う指標
+表示は4段階（0・1・2・3）の予測確率から強さの期待値を計算し、0〜100に換算する。4段階の確率が各25%なら、期待値は1.5、表示は50%。50%は「50%の確率でその状態」という意味ではない。
 
-DAiSEEは、学習者の動画クリップに対して以下の4種類の状態を扱う。
+2026-10-08に使用中チェックポイントを確認したところ、`epoch=0`、`best_avg_acc=0.20` が記録されていた。これはチェックポイント内の記録で、独立に検証した精度ではない。顔画像を少しずつ移動した16フレームでも47〜51程度となり、予測確信度は約0.29だった。現在のモデルは動作確認用として扱い、信頼できる状態推定モデルとは扱わない。
 
-- Boredom: 退屈
-- Engagement: 集中・関与
-- Confusion: 混乱
-- Frustration: 負荷・フラストレーション
+ルートの `daisee_efficientnet_b2.pt.full.pt` はモデル全体を保存した形式だが、全重みが使用中チェックポイントと一致している。入れ替えても改善しない。
 
-それぞれを4段階の強さとして扱う。EmoAcademyのUIでは、この4指標を「学習状態」として表示する。
+画面では予測確信度が0.40未満、または確信度がない場合に「判定が不確か」と表示する。この境界は表示上の暫定基準であり、校正済みの精度保証ではない。値を無理に増幅したり、ランダムに変化させたりはしない。
 
-## EmoAcademyでの使い分け
+## 改善に必要なもの
 
-- ログイン、ユーザー、ロール、学習進捗: Supabaseに保存する。
-- 学習画面: VercelまたはHugging Face Static Spaceで表示する。
-- 感情・学習状態の推論: Hugging Face SpaceのPython APIで行う。
-- カメラ映像: 保存しない。推論用の短いフレームだけAPIに送り、数値結果だけ保存対象にする。
+DAiSEEの訓練・検証データで学習と評価を行った別のチェックポイントが必要。入手した重みを置き換える際は、4指標の順番、前処理、16フレーム入力、出力形状 `[1,4,4]` を確認する。学習済み重みがあるという理由だけで精度を保証しない。
 
-## 実装上の対応
+データセット本体は `D:\datasets\DAiSEE` などに置き、GitHub・Vercel・OneDriveのアプリ配布物には入れない。動画を保存せず、推論結果だけSupabaseに保存する。
 
-`hf-emotion-api/app.py` は、`hf-emotion-api/models/` に `daisee*.pt` または `daisee*.pth` がある場合、DAiSEEモデルとして読み込む。
+## 画面・保存・公開
 
-DAiSEEモデルは、16値の出力を想定する。
-
-```text
-4カテゴリ × 4段階 = 16値
-```
-
-APIレスポンスでは次を返す。
-
-- `learning_affect_pct`: DAiSEEの4指標
-- `dominant_learning_affect`: 一番強い学習状態
-- `valence`: 既存UIと互換させるための気分軸
-- `arousal`: 既存UIと互換させるための活性軸
-- `emotion_pct`: 既存の8感情UIと互換させるための補助値
-
-## データセットを置く場所
-
-推奨:
-
-```text
-D:\datasets\DAiSEE
-```
-
-または、外付けSSDやColab/学習用マシン側に置く。
-
-非推奨:
-
-```text
-D:\OneDrive - Kyushu Institute Of Technolgy\EmoAcademy\DAiSEE
-```
-
-理由は、OneDrive同期とGit管理が重くなりやすいため。
-
-## 学習の流れ
-
-1. DAiSEEを公式配布元から入手する。
-2. 学習環境に動画とラベルCSVを配置する。
-3. EfficientNet-B2などの動画分類モデルを学習する。
-4. `daisee_efficientnet_b2.pt` として保存する。
-5. `hf-emotion-api/models/` に置く。
-6. Hugging Face Spaceを再起動する。
-7. `/health` で `model_loaded: true` を確認する。
-
-## 注意点
-
-- DAiSEEは「成績判定」には使わない。
-- 教師画面では、個人を責める指標ではなく、支援のきっかけとして扱う。
-- 照明、顔角度、カメラ画質で精度が落ちる。
-- 1フレームだけで判断するより、数秒間の連続フレームを使う方が自然。
-
-## 参考
-
-- DAiSEE公式配布ページ: https://people.iith.ac.in/vineethnb/resources/daisee/index.html
-- DAiSEE論文: https://arxiv.org/abs/1609.01885
+- 学生: 退屈・集中／関与・混乱・フラストレーションの4指標。
+- 教師: 元の教師画面のクラス推移、教材／学生／期間の絞り込み、学生別進捗・レポート・支援・教材管理を継承する。気分／活性の2軸図は4指標の推移と学生別平均に置き換える。
+- Supabase: `learning_affect_samples` と `learning_affect_report` を使用する。気分・活性・8感情への変換値は新APIでは返さない。
+- 起動: リポジトリ直下の `start-daisee.bat`。停止は `stop-daisee.bat`。
+- 公開サイト: 推論APIが別途公開され、`NEXT_PUBLIC_EMOTION_API_URL` に設定されている必要がある。Vercelへのサイト公開だけではDAiSEE推論は動かない。

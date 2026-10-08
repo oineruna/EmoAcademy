@@ -50,6 +50,7 @@ type StudySessionRecord = {
   ended_at: string | null;
 };
 type ProgressRecord = {
+  user_id?: string;
   material_id: string | null;
   status: "not_started" | "in_progress" | "completed";
   percent: number;
@@ -77,7 +78,7 @@ type LoadProfile = {
 type SupportAction = "break" | "split" | "check";
 type SupportOutcome = "unknown" | "helped" | "ignored" | "needs_followup";
 type StudentNavId = "home" | "library" | "groups" | "material" | "submission" | "qa" | "emotion";
-type TeacherPanelId = "overview" | "materials" | "questions" | "submissions" | "emotion" | "students";
+type TeacherPanelId = "overview" | "progress" | "materials" | "questions" | "submissions" | "emotion" | "students";
 type SupportActionRecord = {
   id: string;
   student_id?: string;
@@ -701,12 +702,12 @@ function StudentWorkspace({ displayName, mobileOpen, language, preview }: { disp
 
 function TeacherWorkspace({ language, preview, mobileOpen }: { language: Language; preview: boolean; mobileOpen: boolean }) {
   const t = ui[language];
-  const [materials, setMaterials] = useState<Material[]>(materialsSeed);
-  const [questions, setQuestions] = useState<QaThread[]>(qaSeed);
+  const [materials, setMaterials] = useState<Material[]>(preview ? materialsSeed : []);
+  const [questions, setQuestions] = useState<QaThread[]>(preview ? qaSeed : []);
   const [classProgress, setClassProgress] = useState<ProgressRecord[]>([]);
   const [affectReport, setAffectReport] = useState<AffectReport | null>(null);
   const [supportHistory, setSupportHistory] = useState<SupportActionRecord[]>([]);
-  const [submissions, setSubmissions] = useState<MaterialSubmission[]>(submissionSeed);
+  const [submissions, setSubmissions] = useState<MaterialSubmission[]>(preview ? submissionSeed : []);
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [title, setTitle] = useState("");
   const [subject, setSubject] = useState("English Speaking");
@@ -727,18 +728,18 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
       const [materialResult, questionResult, progressResult, supportResult, profileResult, submissionResult] = await Promise.all([
         result.client.from("learning_materials").select("id,title,subject,material_type,duration_minutes,instruction,external_url").order("created_at", { ascending: false }),
         result.client.from("qa_threads").select("id,question,teacher_answer,status,created_at").order("created_at", { ascending: false }),
-        result.client.from("study_progress").select("material_id,status,percent,last_activity_title,last_studied_at").order("last_studied_at", { ascending: false }).limit(6),
+        result.client.from("study_progress").select("user_id,material_id,status,percent,last_activity_title,last_studied_at").order("last_studied_at", { ascending: false }).limit(500),
         result.client.from("support_actions").select("id,student_id,action_type,message,status,created_at,applied_at,load_at_apply,progress_at_apply,outcome_status").order("created_at", { ascending: false }).limit(8),
         result.client.from("profiles").select("id,display_name,role"),
         result.client.from("material_submissions").select("id,material_id,student_id,answer,is_correct,teacher_feedback,submitted_at,graded_at").order("submitted_at", { ascending: false }).limit(10),
       ]);
       if (!active) return;
-      if (!materialResult.error && materialResult.data?.length) setMaterials(materialResult.data.map(dbMaterialToMaterial));
-      if (!questionResult.error && questionResult.data?.length) setQuestions(questionResult.data as QaThread[]);
+      if (!materialResult.error && materialResult.data) setMaterials(materialResult.data.map(dbMaterialToMaterial));
+      if (!questionResult.error && questionResult.data) setQuestions(questionResult.data as QaThread[]);
       if (!progressResult.error && progressResult.data) setClassProgress(progressResult.data as ProgressRecord[]);
       if (!supportResult.error && supportResult.data) setSupportHistory(supportResult.data as SupportActionRecord[]);
       if (!profileResult.error && profileResult.data) setProfiles(profileResult.data as ProfileRecord[]);
-      if (!submissionResult.error && submissionResult.data?.length) setSubmissions(submissionResult.data as MaterialSubmission[]);
+      if (!submissionResult.error && submissionResult.data) setSubmissions(submissionResult.data as MaterialSubmission[]);
     }
     load();
     return () => { active = false; };
@@ -815,7 +816,7 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
     return profile?.display_name?.trim() || (userId?.startsWith("student-") ? `Student ${index + 1}` : `${language === "ja" ? "学生" : "Student"} ${index + 1}`);
   };
   const studentLabel = (sample: EmotionSampleRecord, index: number) => profileLabel(sample.user_id, index);
-  const visibleSupportHistory = supportHistory.length ? supportHistory : supportHistorySeed;
+  const visibleSupportHistory = supportHistory.length ? supportHistory : (preview ? supportHistorySeed : []);
   const teacherEmotionCopy = language === "ja"
     ? { title: "学習状態の4指標", summary: `${highLoadCount}人に支援サイン`, avg: "平均負荷", note: "生徒ごとの最新ログをもとに、声かけ・分割課題・休憩提案を判断します。", noData: "まだ実測ログがないためデモ表示です。" }
     : { title: "Four learning state metrics", summary: `${highLoadCount} support signs`, avg: "Average load", note: "Latest per-student signals guide check-ins, split tasks, and break prompts.", noData: "Demo values are shown until live samples exist." };
@@ -837,11 +838,11 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
     ...submissions.map((submission) => submission.student_id || ""),
     ...visibleSupportHistory.map((support) => support.student_id || ""),
   ].filter(Boolean)));
-  const studentReportRows = (studentIds.length ? studentIds : ["student-a", "student-b"]).map((id, index) => {
+  const studentReportRows = (studentIds.length ? studentIds : (preview ? ["student-a", "student-b"] : [])).map((id, index) => {
     const latestEmotion = visibleEmotionSamples.find((sample) => sample.user_id === id);
     const studentSubmissions = submissions.filter((submission) => submission.student_id === id || (!submission.student_id && index === 0));
     const studentSupports = visibleSupportHistory.filter((support) => support.student_id === id || (!support.student_id && index === 0));
-    const studentProgress = classProgress[index];
+    const studentProgress = classProgress.find((item) => item.user_id === id);
     return {
       id,
       name: profileLabel(id, index),
@@ -849,7 +850,7 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
       latestEmotion,
       submissions: studentSubmissions.length,
       support: studentSupports.length,
-      progress: studentProgress?.percent ?? (index === 0 ? 72 : 58),
+      progress: studentProgress?.percent ?? (preview ? (index === 0 ? 72 : 58) : 0),
       activity: studentProgress?.last_activity_title || materials[index % Math.max(1, materials.length)]?.title || "Learning activity",
     };
   });
@@ -862,13 +863,13 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
   return <main className="teacher-quiz-shell">
     <aside className={`quiz-home-sidebar teacher-quiz-sidebar ${mobileOpen ? "open" : ""}`}>
       <nav className="quiz-primary-nav" aria-label={reportCopy.report}>{teacherPanels.map(([id, label, icon]) => <button key={id} className={activePanel === id ? "active" : ""} type="button" aria-pressed={activePanel === id} onClick={() => jumpToTeacherPanel(id)}>{icon}<span>{label}</span></button>)}</nav>
-      <section className="quiz-side-section"><h2>{reportCopy.support}</h2><button type="button" onClick={() => jumpToTeacherPanel("emotion")}><Sparkles /><span>{teacherEmotionCopy.summary}</span></button></section>
+      <section className="quiz-side-section"><button type="button" onClick={() => jumpToTeacherPanel("progress")}><BarChart3 /><span>{t.classProgress}</span></button><h2>{reportCopy.support}</h2><button type="button" onClick={() => jumpToTeacherPanel("emotion")}><Sparkles /><span>{teacherEmotionCopy.summary}</span></button></section>
     </aside>
 
     <section className="teacher-workspace teacher-panel-feed">
     <header className="teacher-title">
       <div><span>{t.teacherWorkspace.toUpperCase()}</span><h1>{t.manageTitle}</h1><p>{t.manageText}</p></div>
-      <button type="button"><Users />{t.showClass}</button>
+      <button type="button" onClick={() => jumpToTeacherPanel("students")}><Users />{t.showClass}</button>
     </header>
     {notice && <p className="teacher-notice">{notice}</p>}
     <div id="teacher-overview-panel" className="teacher-panel-block">
@@ -901,13 +902,13 @@ function TeacherWorkspace({ language, preview, mobileOpen }: { language: Languag
         <label className="student-id-field">{t.studentId}<input value={studentId} onChange={(event) => setStudentId(event.target.value)} placeholder="student@example.com" /></label>
         <div>{materials.map((material) => <article key={material.id}><span><FileText /></span><div><strong>{material.title}</strong><small>{material.subject} · {material.duration} min</small></div><em>{material.type}</em><button type="button" onClick={() => setNotice(language === "ja" ? `${material.title} ${t.assignedNotice}` : `${material.title}${t.assignedNotice}`)}>{t.assign}</button></article>)}</div>
       </section>
-      <section className="teacher-card student-pulse">
+      <section className="teacher-card student-pulse" id="teacher-progress-panel">
         <header><div><small>CLASS PULSE</small><h2>{t.classProgress}</h2></div><BarChart3 /></header>
-        {(classProgress.length ? classProgress : [{ last_activity_title: "Greetings & Introductions", percent: 72, status: "in_progress", material_id: null, last_studied_at: new Date().toISOString() }, { last_activity_title: "Conversation Practice", percent: 58, status: "in_progress", material_id: null, last_studied_at: new Date().toISOString() }]).map((progressItem, index) => <article key={`${progressItem.last_activity_title}-${index}`}><span>{index + 1}</span><div><strong>{progressItem.last_activity_title || "Learning activity"}</strong><i><b style={{ width: `${progressItem.percent}%` }} /></i></div><em>{progressItem.percent}%</em></article>)}
+        <div className="teacher-progress-table-wrap"><table className="teacher-progress-table"><thead><tr>{(language === "ja" ? ["学生", "開始済み", "完了", "進捗", "支援サイン", "操作"] : ["Student", "Opened", "Completed", "Progress", "Support cue", "Action"]).map((label) => <th key={label}>{label}</th>)}</tr></thead><tbody>{studentReportRows.map((row) => { const records = classProgress.filter((item) => item.user_id === row.id); return <tr key={row.id}><td>{row.name}</td><td>{records.filter((item) => item.status !== "not_started").length}</td><td>{records.filter((item) => item.status === "completed").length}</td><td>{records.length ? `${Math.round(records.reduce((sum, item) => sum + item.percent, 0) / records.length)}%` : "—"}</td><td>{row.latestEmotion ? getSupportAdvice(row.latestEmotion, language) : "—"}</td><td><button type="button" onClick={() => { setSelectedStudentId(row.id); jumpToTeacherPanel("students"); }}>{language === "ja" ? "詳細" : "Details"}</button></td></tr>; })}</tbody></table>{!studentReportRows.length && <p>{reportCopy.noStudent}</p>}</div>
       </section>
       <section className="teacher-card emotion-insight-card" id="teacher-emotion-panel">
         <header><div><small>DAiSEE</small><h2>{teacherEmotionCopy.title}</h2></div></header>
-        <TeacherAffectReport language={language} preview={preview} profiles={profiles} onReport={setAffectReport} />
+        <TeacherAffectReport language={language} preview={preview} profiles={profiles} materials={materials} onReport={setAffectReport} />
         <div className="emotion-student-list">{visibleEmotionSamples.map((sample, index) => { const advice = getSupportAdvice(sample, language); const name = studentLabel(sample, index); return <article key={sample.id}><span>{index + 1}</span><div><strong>{name}</strong><small>{language === "ja" ? "最新の計測" : "Latest reading"} · {new Date(sample.captured_at).toLocaleString(language === "ja" ? "ja-JP" : "en-US")}</small><LearningAffectBars scores={sample} language={language} /><small className="emotion-advice">{advice}</small><div className="emotion-support-actions"><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "break")}>{t.breakPrompt}</button><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "split")}>{t.splitPrompt}</button><button type="button" onClick={() => queueSupportAction(sample.user_id, name, "check")}>{t.checkPrompt}</button></div></div></article>; })}</div>
       </section>
       <section className="teacher-card submission-review-card" id="teacher-submissions-panel">

@@ -143,7 +143,7 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
         scores, dominant, confidence: typeof data.confidence === "number" ? data.confidence : undefined,
         source: "daisee", modelVersion: data.model_version, validFrames: data.quality.valid_frames,
         capturedAt: new Date().toISOString(),
-        sustained: recentDominants.current.length === 3 && recentDominants.current.every((key) => key === dominant) && scores[dominant] >= 60,
+        sustained: recentDominants.current.length === 3 && recentDominants.current.every((key) => key === dominant) && scores[dominant] >= 60 && typeof data.confidence === "number" && data.confidence >= 0.4,
       };
       setSignal(next); props.current.onSignal?.(next); setStatus("");
       try { await saveSample(data.scores, next); }
@@ -218,8 +218,9 @@ export function EmotionCamera({ onClose, language = "ja", autoStart = false, onS
       {active && !signal && !status && <p className="emotion-monitor-status" role="status">{frameCount === 0 ? (ja ? "分析中…" : "Analyzing…") : `${ja ? "フレーム取得中" : "Capturing"} ${frameCount}/16`}</p>}
       {status && <p className="emotion-monitor-status" role="status">{status}</p>}
     </div>
-    <div className="learning-affect-current"><small>{ja ? "学習状態" : "Learning state"}</small><strong>{signal ? affectLabels[language][signal.dominant] : (ja ? "未計測" : "Not measured")}</strong></div>
+    <div className="learning-affect-current"><small>{ja ? "学習状態" : "Learning state"}</small><strong>{signal ? (signal.confidence === undefined || signal.confidence < 0.4 ? (ja ? "判定が不確か" : "Uncertain prediction") : affectLabels[language][signal.dominant]) : (ja ? "未計測" : "Not measured")}</strong></div>
+    {signal && (signal.confidence === undefined || signal.confidence < 0.4) && <p className="emotion-monitor-status" role="status">{ja ? "予測が拮抗しています。50%は確率ではなく、4段階予測から算出した参考値です。" : "Predictions are close. Scores are estimated intensities, not probabilities."}</p>}
     <LearningAffectBars language={language} scores={signal?.scores ?? null} />
-    <details className="emotion-idle-details emotion-live-details"><summary>{ja ? "詳細を見る" : "View details"}<ChevronDown /></summary><div><small>{ja ? "学習中の教材" : "Material"}</small><strong>{materialTitle}</strong><p>{ja ? "直近5回の平均・各指標の強さ（0〜100）" : "Last 5 readings · independent intensity (0–100)"}</p>{signal && <p>{ja ? "有効フレーム" : "Valid frames"}: {signal.validFrames}/16 · {new Date(signal.capturedAt).toLocaleTimeString()}</p>}{saveFailed && <p role="status">{ja ? "保存を再試行中です。この画面を閉じずにお待ちください。" : "Retrying save. Keep this monitor open."}</p>}</div></details>
+    <details className="emotion-idle-details emotion-live-details"><summary>{ja ? "詳細を見る" : "View details"}<ChevronDown /></summary><div><small>{ja ? "学習中の教材" : "Material"}</small><strong>{materialTitle}</strong><p>{ja ? "直近5回の平均・各指標の強さ（0〜100）" : "Last 5 readings · independent intensity (0–100)"}</p>{signal && <p>{ja ? "モデル: DAiSEE / EfficientNet-B2 (.pt)・予測確信度" : "Model: DAiSEE / EfficientNet-B2 (.pt) · confidence"}: {signal.confidence === undefined ? "—" : `${Math.round(signal.confidence * 100)}%`}</p>}{signal && <p>{ja ? "有効フレーム" : "Valid frames"}: {signal.validFrames}/16 · {new Date(signal.capturedAt).toLocaleTimeString()}</p>}{saveFailed && <p role="status">{ja ? "保存を再試行中です。この画面を閉じずにお待ちください。" : "Retrying save. Keep this monitor open."}</p>}</div></details>
   </section>;
 }
